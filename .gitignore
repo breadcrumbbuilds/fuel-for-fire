@@ -1,12 +1,9 @@
 images/
 data*
-<<<<<<< HEAD
 *DS_Store
 log
 *png
-=======
-*.png
-*DS_Store
-log
-.vscode/*
->>>>>>> 99561b3f81237f3ff2175b9b9e35b9cc5bf2fe77
+*.vscode*
+*checkpoints*
+*mnist/
+20190926kamloops_data/
