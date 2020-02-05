@@ -15,19 +15,22 @@ class Image(object):
         print("Bands",self.bands)
 
         # each pixel, organized by band - 164410 by 12 for s2, by 11 for l8
-        self.Data = data.reshape((self.samples * self.lines,self.bands))
+        self.Data = data.reshape((self.bands, self.lines * self.samples))
 
         print("Data Shape", self.Data.shape)
         self.__build_rgb()
 
     def __build_rgb(self):
-        arr = np.zeros((self.samples, self.lines, 3))
+        arr = np.zeros((self.lines, self.samples, 3))
         print("rgb shape:", arr.shape)
-        tmp = self.Data.reshape(self.samples, self.lines, self.bands)
-        print("temp shape:", tmp.shape)
-        arr[:,:,0] = rescale(tmp[:,:,3]) # red
-        arr[:,:,1] = rescale(tmp[:,:,2]) # blue
-        arr[:,:,2] = rescale(tmp[:,:,1]) # green
+        #print("temp shape:", tmp.shape)
+        
+        for i in range(0, 3):
+            arr[:, :, i] = self.Data[3 - i, :].reshape((self.lines, self.samples))
+    
+        for i in range(0, 3):
+            arr[:, :, i] = rescale(arr[:, :, i])
+        
         self.rgb = arr
 
     def ravel(self):
