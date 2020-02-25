@@ -255,7 +255,7 @@ Band 5 - Near Infrared 	0.845 – 0.885 μm 	30 m 	955 W/(m2μm)
 Band 6 - Short Wavelength Infrared 	1.560 – 1.660 μm 	30 m 	242 W/(m2μm)
 Band 7 - Short Wavelength Infrared 	2.100 – 2.300 μm 	30 m 	82.5 W/(m2μm)
 Band 8 - Panchromatic 	0.500 – 0.680 μm 	15 m 	1739 W/(m2μm)
-Band 9 - Cirrus 	1.360 – 1.390 μm 	30 m 	361 W/(m2μm) 
+Band 9 - Cirrus 	1.360 – 1.390 μm 	30 m 	361 W/(m2μm)
 
 Sentinel-2 bands 	Sentinel-2A 	Sentinel-2B
 Central wavelength (nm) 	Bandwidth (nm) 	Central wavelength (nm) 	Bandwidth (nm) 	Spatial resolution (m)
@@ -856,7 +856,7 @@ if __name__ == "__main__":
     a[:, :, 1] = X.S2A_3.values.reshape(lines, samples)
     a[:, :, 2] = X.S2A_2.values.reshape(lines, samples)
     a = (a - np.min(a)) / np.max(a)
-    
+
 
     values = a.ravel()
 
@@ -877,7 +877,7 @@ if __name__ == "__main__":
         groundref_name = class_ + '_bool'
         if not groundref_name in data_frame:
             err("failed to find: " + groundref)
- 
+
         # converted to float at end, so matplotlib would show data values on the plot
         groundref = data_frame[groundref_name].values.reshape(lines, samples).astype(float)
 
@@ -895,7 +895,7 @@ if __name__ == "__main__":
         ax1.imshow(a)
         ax2.imshow(groundref, cmap = 'binary_r') # why we have to reverse colourmap, don't know!
         ax3.imshow(y) #, cmap='binary')
-        
+
         ax1.set_title('image')
         ax2.set_title('reference: ' + groundref_name)
         ax3.set_title('predicted: ' + groundref_name)
