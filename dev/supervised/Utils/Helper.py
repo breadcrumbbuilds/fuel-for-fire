@@ -1,6 +1,6 @@
 import numpy as np
-
-
+from rasterbox.Rasterbox import Rasterbox as rb
+from Utils.targets import get_bcgw_targets
 class Helper():
 
 
@@ -25,3 +25,7 @@ class Helper():
         std_val = np.std(X)
 
         return mean_vals, std_val
+
+    @staticmethod
+    def init_data():
+        return rb("data", "data_img", "data_bcgw", get_bcgw_targets())
