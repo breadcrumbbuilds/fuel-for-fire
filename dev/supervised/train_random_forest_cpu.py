@@ -15,8 +15,8 @@ import time
 def run(key):
     # colours = [color.hsv_to_rgb(vector( i / (next_label - 1), 1., 1.)) for i in range(0, next_label)]
 
-    n_estimators = 100
-    n_features = 8
+    n_estimators = 5000
+    n_features = 2
     test_size =.25
     file = 'RandForest/%s_%s_%s.png' % (key, n_estimators, n_features)
     data = Helper.init_data()
@@ -54,20 +54,19 @@ def run(key):
 
 
     fig, axs = plt.subplots(2, 3, figsize=(9, 6), sharey=False)
+    # plt.subplots_adjust(right=.5, top=3)
     ex = Rectangle((0, 0), 0, 0, fc="w", fill=False, edgecolor='none', linewidth=0)
-    fig.legend([ex,ex,ex,ex,ex,ex,ex,ex,ex,ex],
-               ("Random Forest",
-                "Target: %s" % key.upper(),
-                "Data: %s" % data_name,
-                "Test Accuracy: %s" % round(test_score,3),
-                "Train Accuracy: %s" % round(train_score,3),
+    fig.legend([ex,ex,ex,ex,ex,ex,ex,ex],
+               ("Target: %s" % key.upper(),
+                "Test Acc.: %s" % round(test_score,3),
+                "Train Acc.: %s" % round(train_score,3),
                 "Test Size: %s" % test_size,
-                "Train Time: %s" % fit_time,
-                "Predict Time : %s" % predict_time,
-                "Number of Estimators: %s" % n_estimators,
-                "Max Features/Estimator: %s" % n_features),
-               loc='best',
-               ncol=8)
+                "Train: %ss" % fit_time,
+                "Predict: %ss" % predict_time,
+                "Estimators: %s" % n_estimators,
+                "Max Features: %s" % n_features),
+               loc='center left',
+               ncol=4)
     axs[0,0].set_title('Sentinel2')
     axs[0,0].imshow(data.S2.rgb)
 
@@ -79,10 +78,10 @@ def run(key):
                mpatches.Patch(color=[1,0,0], label='FP'),
                mpatches.Patch(color=[1,.5,0], label='FN'),
                mpatches.Patch(color=[0,0,1], label='TN')]
-    axs[0,2].legend(loc='upper center',
+    axs[0,2].legend(loc='upper right',
                     handles=patches,
                     ncol=2,
-                    bbox_to_anchor=(0.5, -0.05)) # moves the legend outside
+                    bbox_to_anchor=(1, -0.15)) # moves the legend outside
     axs[0,2].imshow(visualization)
 
     axs[1,0].set_title('Test Data Confusion Matrix')
@@ -110,6 +109,7 @@ def run(key):
     axs[1,1].set_yticklabels([0, 'True', 'False'])
     axs[1,1].set_xlabel('predicted label')
     axs[1,1].set_ylabel('true label')
+    axs[1,1].margins(x=10)
 
 
     axs[1,2].set_title('Feature Importance')
