@@ -6,6 +6,8 @@ import matplotlib.pyplot as plt
 import matplotlib.patches as mpatches
 from matplotlib.patches import Rectangle
 import multiprocessing
+import pickle
+import time
 """
     Paralellized program to create RandomForests for all 9 classes and visualize the results
 
@@ -15,10 +17,13 @@ def run(key):
 
     n_estimators = 100
     n_features = 8
+    test_size =.25
+    file = 'RandForest/%s_%s_%s.png' % (key, n_estimators, n_features)
     data = Helper.init_data()
     X = data.S2.Data()
+    data_name = "Sentinel2"
     y = data.Target[key].Binary
-    X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.25)
+    X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=test_size)
     feat_labels = [str(x) for x in range(X.shape[1])]
     feat_labels = np.asarray(feat_labels)
     # n jobs uses all the available cores - turn to 1 so can parallelize across all nine classes
@@ -26,33 +31,43 @@ def run(key):
                                     random_state=2,
                                     max_features=n_features,
                                     n_jobs=1)
-
+    start_fit = time.time()
     forest.fit(X_train, y_train)
+    end_fit = time.time()
+    fit_time = round(end_fit - start_fit,2)
 
+    start_predict = time.time()
     predictions = forest.predict(X)
+    end_predict = time.time()
+    predict_time = round(end_predict - start_predict,2)
+
     confmatTest = confusion_matrix(y_true=y_test, y_pred=forest.predict(X_test))/len(y_test)
     confmatTrain = confusion_matrix(y_true=y_train, y_pred=forest.predict(X_train))/len(y_train)
 
     importances = forest.feature_importances_
     indices = np.argsort(importances)[::-1]
 
-    trainScore = forest.score(X_train, y_train)
-    testScore = forest.score(X_test, y_test)
+    train_score = forest.score(X_train, y_train)
+    test_score = forest.score(X_test, y_test)
 
     visualization = build_vis(predictions,y, (data.S2.lines, data.S2.samples, 3))
 
 
     fig, axs = plt.subplots(2, 3, figsize=(9, 6), sharey=False)
-    extra = Rectangle((0, 0), 0, 0, fc="w", fill=False, edgecolor='none', linewidth=0)
-    fig.legend([extra,extra,extra,extra,extra,extra],
+    ex = Rectangle((0, 0), 0, 0, fc="w", fill=False, edgecolor='none', linewidth=0)
+    fig.legend([ex,ex,ex,ex,ex,ex,ex,ex,ex,ex],
                ("Random Forest",
                 "Target: %s" % key.upper(),
-                "Test Accuracy: %s" % round(testScore,3),
-                "Train Accuracy %s" % round(trainScore,3),
+                "Data: %s" % data_name,
+                "Test Accuracy: %s" % round(test_score,3),
+                "Train Accuracy: %s" % round(train_score,3),
+                "Test Size: %s" % test_size,
+                "Train Time: %s" % fit_time,
+                "Predict Time : %s" % predict_time,
                 "Number of Estimators: %s" % n_estimators,
-                "Max Features/Estimator %s" % n_features),
-               loc='upper center',
-               ncol=3)
+                "Max Features/Estimator: %s" % n_features),
+               loc='best',
+               ncol=8)
     axs[0,0].set_title('Sentinel2')
     axs[0,0].imshow(data.S2.rgb)
 
@@ -109,7 +124,7 @@ def run(key):
     axs[1,2].set_ylim([0, .15])
 
     plt.tight_layout()
-    plt.savefig('outs/RandForest/%s_%s_%s.png' % (key, n_estimators, n_features))
+    plt.savefig('outs/%s.png' % file)
     plt.show()
 
 
