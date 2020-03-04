@@ -15,12 +15,13 @@ import time
 def run(key):
     # colours = [color.hsv_to_rgb(vector( i / (next_label - 1), 1., 1.)) for i in range(0, next_label)]
 
-    n_estimators = 5000
+    n_estimators = 50
     n_features = 2
     test_size =.25
     file = 'RandForest/%s_%s_%s.png' % (key, n_estimators, n_features)
     data = Helper.init_data()
     X = data.S2.Data()
+    rgb = data.S2.rgb
     data_name = "Sentinel2"
     y = data.Target[key].Binary
     X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=test_size)
@@ -50,7 +51,7 @@ def run(key):
     train_score = forest.score(X_train, y_train)
     test_score = forest.score(X_test, y_test)
 
-    visualization = build_vis(predictions,y, (data.S2.lines, data.S2.samples, 3))
+    visualization = build_vis(rgb,predictions,y, (data.S2.lines, data.S2.samples, 3))
 
 
     fig, axs = plt.subplots(2, 3, figsize=(9, 6), sharey=False)
@@ -128,7 +129,8 @@ def run(key):
     plt.show()
 
 
-def build_vis(prediction, y, shape):
+def build_vis(rgb,prediction, y, shape):
+    rgb = rgb.reshape(164410, 3) # HACKY
     visualization = np.zeros((len(y), 3))
     for idx, pixel in enumerate(zip(prediction, y)):
         if pixel[0] and pixel[1]:
@@ -145,7 +147,9 @@ def build_vis(prediction, y, shape):
 
         elif not pixel[0] and not pixel[1]:
             # True Negative
-            visualization[idx, ] = [0,0,1]
+            visualization[idx, ] = rgb[idx, ]
+            # visualization[idx, ] = rgb[0,0,1]
+
 
         else:
             raise Exception("There was a problem predicting the pixel", idx)
