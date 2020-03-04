@@ -25,6 +25,10 @@ def get_bcgw_targets():
     'val' : 0.0 },
                'mixed' : {
     'bool' : False,
-    'val' : 0.0 }
+    'val' : 0.0 },
+               'road' : {
+    'bool' : True,
+    'val' : 1.0
+                }
                }
     return bcgw_targets
