@@ -48,11 +48,6 @@ def visVRI():
     l = int(lines)
     b = int(bands)
     y = y.reshape(l, s)
-
-    print(y.shape)
-
-
-
     plt.imshow(y)
     plt.show()
 
