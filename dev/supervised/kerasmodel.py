@@ -2,6 +2,7 @@ import tensorflow.keras as keras
 import matplotlib.pyplot as plt
 import numpy as np
 import multiprocessing
+from sklearn.model_selection import train_test_split
 from Utils.Helper import rescale
 from Utils.Misc import read_binary
 
@@ -10,6 +11,8 @@ def main():
     print("Numpy Version: %s" % np.__version__)
     print("Keras Version: %s" % keras.__version__)
 
+    test_size = .25
+    ## Load Data
     target = {
         "broadleaf" : "BROADLEAF_SP.tif_proj.bin",
         "ccut" : "CCUTBL_SP.tif_proj.bin",
@@ -34,6 +37,18 @@ def main():
     one_hot = np.zeros((xs * xl, len(target)))
     for idx, key in enumerate(target.keys()):
         s,l,b,one_hot[:,idx] = read_binary("data/data_bcgw/%s" % target[key])
+
+
+    ## Preprocess
+    X_train, X_test, y_train, y_test = train_test_split(X, one_hot, test_size=test_size)
+    mean_vals = np.mean(X_train, axis=0)
+    std_vals = np.std(X_train)
+    X_train_centered = (X_train - mean_vals) / std_vals
+    X_test_centered = (X_test - mean_vals) / std_vals
+
+    del X_train, X_test
+    print(X_train_centered.shape, y_train.shape)
+    print(X_test_centered.shape, y_test.shape)
 
 
 
