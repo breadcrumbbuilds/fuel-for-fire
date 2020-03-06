@@ -4,7 +4,7 @@ import numpy as np
 from rasterbox.Rasterbox import Rasterbox as rb
 from Utils.targets import get_bcgw_targets
 
-@staticmethod
+
 def create_batch_generator(X, y, batch_size=128, shuffle=False):
     X_copy =  np.array(X)
     y_copy = np.array(y)
