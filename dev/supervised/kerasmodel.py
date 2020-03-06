@@ -18,9 +18,9 @@ def main():
         "herb" : "HERB_GRAS_SP.tif_proj.bin",
         "mixed" : "MIXED_SP.tif_proj.bin",
         "river" : "RiversSP.tif_proj.bin",
-        "road" : "RoadsSP.tif_proj.bin",
+        #"road" : "RoadsSP.tif_proj.bin",
         "shrub" : "SHRUB_SP.tif_proj.bin",
-        "vri" : "vri_s3_objid2.tif_proj.bin",
+        #"vri" : "vri_s3_objid2.tif_proj.bin",
         "water" : "WATERSP.tif_proj.bin",
     }
 
@@ -30,16 +30,11 @@ def main():
     xb = int(xb)
     X = X.reshape(xl*xs, xb)
 
-    ys, yl, yb, y = read_binary("data/data_bcgw/%s" % target['road'])
-    ys = int(ys)
-    yl = int(yl)
-    yb = int(yb)
-    y = y.reshape(yl,ys)
+    # build one hot
+    one_hot = np.zeros((xs * xl, len(target)))
+    for idx, key in enumerate(target.keys()):
+        s,l,b,one_hot[:,idx] = read_binary("data/data_bcgw/%s" % target[key])
 
-
-
-    print(X.shape)
-    print(y.shape)
 
 
 def visVRI():
