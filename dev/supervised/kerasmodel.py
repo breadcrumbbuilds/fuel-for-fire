@@ -1,9 +1,10 @@
 import tensorflow.keras as keras
+import tensorflow as tf
 import matplotlib.pyplot as plt
 import numpy as np
 import multiprocessing
 from sklearn.model_selection import train_test_split
-from Utils.Helper import rescale
+from Utils.Helper import rescale, create_batch_generator
 from Utils.Misc import read_binary
 
 
@@ -12,6 +13,7 @@ def main():
     print("Keras Version: %s" % keras.__version__)
 
     test_size = .25
+    learning_rate = 0.001
     ## Load Data
     target = {
         "broadleaf" : "BROADLEAF_SP.tif_proj.bin",
@@ -49,6 +51,56 @@ def main():
     del X_train, X_test
     print(X_train_centered.shape, y_train.shape)
     print(X_test_centered.shape, y_test.shape)
+
+    ## Model
+
+    n_features = X_train_centered.shape[1]
+    n_classes = len(target)
+    rand_seed = 123 # reproducability
+
+    np.random.seed(rand_seed)
+
+    g = tf.Graph()
+    with g.as_default():
+        tf.set_random_seed(rand_seed)
+        tf_x = tf.placeholder(dtype=tf.float32,
+                              shape=(None, n_features),
+                              name='tf_x')
+
+        tf_y = tf.placeholder(dtype=tf.int8,
+                              shape=None,
+                              name='tf_y')
+        y_onehot = tf.one_hot(indices=tf_y,
+                              units=50,
+                              activation=tf.tanh,
+                              name='layer1')
+        h2 = tf.layers.dense(inputs=h1,
+                             units=50,
+                             activation=tf.tanh,
+                             name='layer2')
+        logits = tf.layers.dense(inputs=h2,
+                                 units=n_features,
+                                 activation=None,
+                                 name='layer3')
+        predictions = {
+            'classes' : tf.argmax(logits, axis=1,
+                                  name='predicted_classes'),
+            'probabilities' : tf.nn.softmax(logits,
+                                            name='softmax_tensor')
+        }
+
+    with g.as_default():
+        cost = tf.losses.softmax_cross_entropy(
+            onehot_labels=y_onehot, logits=logits
+            )
+
+        optimizer = tf.train.GradientDescentOptimizer(
+            learning_rate=learning_rate
+        )
+        train_op = optimizer.minimize(loss=cost)
+
+        init_op = tf.global_variables_initializer()
+
 
 
 
