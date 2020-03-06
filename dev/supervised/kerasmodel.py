@@ -14,16 +14,20 @@ def main():
     print("Numpy Version: %s" % np.__version__)
     print("Keras Version: %s" % keras.__version__)
 
+    ## Config
     test_size = .25
-    learning_rate = 0.001
+    learning_rate = 0.000333
+    batch_size = 16384
+    epochs = 10
+
     ## Load Data
     target = {
-        "broadleaf" : "BROADLEAF_SP.tif_proj.bin",
-        "ccut" : "CCUTBL_SP.tif_proj.bin",
-        "conifer" : "CONIFER_SP.tif_proj.bin",
-        "exposed" : "EXPOSED_SP.tif_proj.bin",
-        "herb" : "HERB_GRAS_SP.tif_proj.bin",
-        "mixed" : "MIXED_SP.tif_proj.bin",
+        # "broadleaf" : "BROADLEAF_SP.tif_proj.bin",
+        # "ccut" : "CCUTBL_SP.tif_proj.bin",
+        # "conifer" : "CONIFER_SP.tif_proj.bin",
+        # "exposed" : "EXPOSED_SP.tif_proj.bin",
+        # "herb" : "HERB_GRAS_SP.tif_proj.bin",
+        # "mixed" : "MIXED_SP.tif_proj.bin",
         "river" : "RiversSP.tif_proj.bin",
         #"road" : "RoadsSP.tif_proj.bin",
         "shrub" : "SHRUB_SP.tif_proj.bin",
@@ -40,8 +44,8 @@ def main():
     # build one hot
     one_hot = np.zeros((xs * xl, len(target)))
     for idx, key in enumerate(target.keys()):
-        s,l,b,one_hot[:,idx] = read_binary("data/data_bcgw/%s" % target[key])
-
+        s,l,b,tmp = read_binary("data/data_bcgw/%s" % target[key])
+        one_hot[:,idx] = np.logical_or(tmp,one_hot[:,idx])
 
     ## Preprocess
     X_train, X_test, y_train, y_test = train_test_split(X, one_hot, test_size=test_size)
@@ -62,46 +66,128 @@ def main():
 
     np.random.seed(rand_seed)
 
-    g = tf.Graph()
-    with g.as_default():
-        tf.set_random_seed(rand_seed)
-        tf_x = tf.placeholder(dtype=tf.float32,
-                              shape=(None, n_features),
-                              name='tf_x')
+    tf.random.set_seed(rand_seed)
 
-        tf_y = tf.placeholder(dtype=tf.int8,
-                              shape=None,
-                              name='tf_y')
-        y_onehot = tf.one_hot(indices=tf_y,
-                              units=50,
-                              activation=tf.tanh,
-                              name='layer1')
-        h2 = tf.layers.dense(inputs=h1,
-                             units=50,
-                             activation=tf.tanh,
-                             name='layer2')
-        logits = tf.layers.dense(inputs=h2,
-                                 units=n_features,
-                                 activation=None,
-                                 name='layer3')
-        predictions = {
-            'classes' : tf.argmax(logits, axis=1,
-                                  name='predicted_classes'),
-            'probabilities' : tf.nn.softmax(logits,
-                                            name='softmax_tensor')
-        }
+    print('\nFirst 3 labels (one-hot):\n',y_train[:3])
 
-    with g.as_default():
-        cost = tf.losses.softmax_cross_entropy(
-            onehot_labels=y_onehot, logits=logits
-            )
+    model = keras.models.Sequential()
 
-        optimizer = tf.train.GradientDescentOptimizer(
-            learning_rate=learning_rate
-        )
-        train_op = optimizer.minimize(loss=cost)
+    model.add(
+        keras.layers.Dense(
+            units=50,
+            input_dim=X_train_centered.shape[1],
+            kernel_initializer='glorot_uniform',
+            bias_initializer='zeros',
+            activation='tanh'
+        ))
 
-        init_op = tf.global_variables_initializer()
+    model.add(
+        keras.layers.Dense(
+            units=100,
+            input_dim=50,
+            kernel_initializer='glorot_uniform',
+            bias_initializer='zeros',
+            activation='tanh'
+        ))
+
+    model.add(
+        keras.layers.Dense(
+            units=200,
+            input_dim=100,
+            kernel_initializer='glorot_uniform',
+            bias_initializer='zeros',
+            activation='tanh'
+        ))
+
+    # model.add(
+    #     keras.layers.Dense(
+    #         units=400,
+    #         input_dim=200,
+    #         kernel_initializer='glorot_uniform',
+    #         bias_initializer='zeros',
+    #         activation='tanh'
+    #     ))
+
+    # model.add(
+    #     keras.layers.Dense(
+    #         units=800,
+    #         input_dim=400,
+    #         kernel_initializer='glorot_uniform',
+    #         bias_initializer='zeros',
+    #         activation='tanh'
+    #     ))
+
+    # model.add(
+    #     keras.layers.Dense(
+    #         units=400,
+    #         input_dim=200,
+    #         kernel_initializer='glorot_uniform',
+    #         bias_initializer='zeros',
+    #         activation='tanh'
+    #     ))
+
+    model.add(
+        keras.layers.Dense(
+            units=100,
+            input_dim=200,
+            kernel_initializer='glorot_uniform',
+            bias_initializer='zeros',
+            activation='tanh'
+        ))
+
+    model.add(
+        keras.layers.Dense(
+            units=50,
+            input_dim=100,
+            kernel_initializer='glorot_uniform',
+            bias_initializer='zeros',
+            activation='tanh'
+        ))
+
+    model.add(
+        keras.layers.Dense(
+            units=25,
+            input_dim=50,
+            kernel_initializer='glorot_uniform',
+            bias_initializer='zeros',
+            activation='tanh'
+        ))
+
+    model.add(
+        keras.layers.Dense(
+            units=y_train.shape[1],
+            input_dim=25,
+            kernel_initializer='glorot_uniform',
+            bias_initializer='zeros',
+            activation='relu'
+        ))
+
+    sgd_optimizer = keras.optimizers.SGD(
+        lr=learning_rate, decay=1e-7, momentum=.9
+    )
+
+    model.compile(optimizer=sgd_optimizer,
+                  loss='categorical_crossentropy')
+
+    history = model.fit(X_train_centered, y_train,
+                        batch_size=batch_size,
+                        epochs=epochs,
+                        verbose=1,
+                        validation_split=0.1)
+
+    y_train_pred = model.predict_classes(X_train_centered, verbose=1)
+
+    correct_preds = np.sum(y_train == y_train_pred, axis=0)
+    train_acc = correct_preds / y_train.shape[0]
+
+    print('Training Accuracy: %.2f%%' % (train_acc * 100))
+
+    y_test_pred = model.predict_classes(X_test_centered,
+                                        verbose=1)
+    correct_preds = np.sum(y_test == y_test_pred, axis=0)
+    test_acc = correct_preds / y_test.shape[0]
+    print('Test accuracy: %.2f%%' % (test_acc * 100))
+
 
 
 
