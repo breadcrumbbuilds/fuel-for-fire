@@ -15,22 +15,22 @@ def main():
     print("Keras Version: %s" % keras.__version__)
 
     ## Config
-    test_size = .25
-    learning_rate = 0.000333
-    batch_size = 16384
+    test_size = .3
+    learning_rate = 0.0033
+    batch_size = 4096
     epochs = 10
 
     ## Load Data
     target = {
-        # "broadleaf" : "BROADLEAF_SP.tif_proj.bin",
+        "broadleaf" : "BROADLEAF_SP.tif_proj.bin",
         # "ccut" : "CCUTBL_SP.tif_proj.bin",
-        # "conifer" : "CONIFER_SP.tif_proj.bin",
-        # "exposed" : "EXPOSED_SP.tif_proj.bin",
+        #"conifer" : "CONIFER_SP.tif_proj.bin",
+        "exposed" : "EXPOSED_SP.tif_proj.bin",
         # "herb" : "HERB_GRAS_SP.tif_proj.bin",
-        # "mixed" : "MIXED_SP.tif_proj.bin",
-        "river" : "RiversSP.tif_proj.bin",
+        #"mixed" : "MIXED_SP.tif_proj.bin",
+        # "river" : "RiversSP.tif_proj.bin",
         #"road" : "RoadsSP.tif_proj.bin",
-        "shrub" : "SHRUB_SP.tif_proj.bin",
+        # "shrub" : "SHRUB_SP.tif_proj.bin",
         #"vri" : "vri_s3_objid2.tif_proj.bin",
         "water" : "WATERSP.tif_proj.bin",
     }
@@ -70,105 +70,115 @@ def main():
 
     print('\nFirst 3 labels (one-hot):\n',y_train[:3])
 
-    model = keras.models.Sequential()
-
-    model.add(
+    model = keras.models.Sequential([
         keras.layers.Dense(
-            units=50,
+            units=27,
             input_dim=X_train_centered.shape[1],
             kernel_initializer='glorot_uniform',
             bias_initializer='zeros',
-            activation='tanh'
-        ))
-
-    model.add(
+            activation='tanh'),
         keras.layers.Dense(
-            units=100,
-            input_dim=50,
+            units=84,
+            input_dim=27,
             kernel_initializer='glorot_uniform',
             bias_initializer='zeros',
-            activation='tanh'
-        ))
-
-    model.add(
+            activation='tanh'),
         keras.layers.Dense(
-            units=200,
-            input_dim=100,
+            units=252,
+            input_dim=84,
             kernel_initializer='glorot_uniform',
             bias_initializer='zeros',
-            activation='tanh'
-        ))
-
-    # model.add(
-    #     keras.layers.Dense(
-    #         units=400,
-    #         input_dim=200,
-    #         kernel_initializer='glorot_uniform',
-    #         bias_initializer='zeros',
-    #         activation='tanh'
-    #     ))
-
-    # model.add(
-    #     keras.layers.Dense(
-    #         units=800,
-    #         input_dim=400,
-    #         kernel_initializer='glorot_uniform',
-    #         bias_initializer='zeros',
-    #         activation='tanh'
-    #     ))
-
-    # model.add(
-    #     keras.layers.Dense(
-    #         units=400,
-    #         input_dim=200,
-    #         kernel_initializer='glorot_uniform',
-    #         bias_initializer='zeros',
-    #         activation='tanh'
-    #     ))
-
-    model.add(
+            activation='tanh'),
         keras.layers.Dense(
-            units=100,
-            input_dim=200,
+            units=756,
+            input_dim=252,
             kernel_initializer='glorot_uniform',
             bias_initializer='zeros',
-            activation='tanh'
-        ))
-
-    model.add(
+            activation='tanh'),
         keras.layers.Dense(
-            units=50,
-            input_dim=100,
+            units=2268,
+            input_dim=756,
             kernel_initializer='glorot_uniform',
             bias_initializer='zeros',
-            activation='tanh'
-        ))
-
-    model.add(
+            activation='tanh'),
         keras.layers.Dense(
-            units=25,
-            input_dim=50,
+            units=6804,
+            input_dim=2268,
             kernel_initializer='glorot_uniform',
             bias_initializer='zeros',
-            activation='tanh'
-        ))
-
-    model.add(
+            activation='tanh'),
+        keras.layers.Dense(
+            units=6804,
+            input_dim=6804,
+            kernel_initializer='glorot_uniform',
+            bias_initializer='zeros',
+            activation='tanh'),
+         keras.layers.Dense(
+            units=2268,
+            input_dim=6804,
+            kernel_initializer='glorot_uniform',
+            bias_initializer='zeros',
+            activation='tanh'),
+        keras.layers.Dense(
+            units=756,
+            input_dim=2268,
+            kernel_initializer='glorot_uniform',
+            bias_initializer='zeros',
+            activation='tanh'),
+         keras.layers.Dense(
+            units=252,
+            input_dim=756,
+            kernel_initializer='glorot_uniform',
+            bias_initializer='zeros',
+            activation='tanh'),
+        keras.layers.Dense(
+            units=84,
+            input_dim=252,
+            kernel_initializer='glorot_uniform',
+            bias_initializer='zeros',
+            activation='tanh'),
+        keras.layers.Dense(
+            units=27,
+            input_dim=84,
+            kernel_initializer='glorot_uniform',
+            bias_initializer='zeros',
+            activation='tanh'),
+        # keras.layers.Dense(
+        #     units=72,
+        #     input_dim=144,
+        #     kernel_initializer='glorot_uniform',
+        #     bias_initializer='zeros',
+        #     activation='tanh'),
+        # keras.layers.Dense(
+        #     units=36,
+        #     input_dim=72,
+        #     kernel_initializer='glorot_uniform',
+        #     bias_initializer='zeros',
+        #     activation='tanh'),
+        # keras.layers.Dense(
+        #     units=18,
+        #     input_dim=36,
+        #     kernel_initializer='glorot_uniform',
+        #     bias_initializer='zeros',
+        #     activation='tanh'),
         keras.layers.Dense(
             units=y_train.shape[1],
-            input_dim=25,
+            input_dim=27,
             kernel_initializer='glorot_uniform',
             bias_initializer='zeros',
             activation='relu'
-        ))
+        )])
 
     sgd_optimizer = keras.optimizers.SGD(
         lr=learning_rate, decay=1e-7, momentum=.9
     )
+    nadam_optimizer = keras.optimizers.Nadam(learning_rate=learning_rate, beta_1=0.9, beta_2=0.999)
 
-    model.compile(optimizer=sgd_optimizer,
-                  loss='categorical_crossentropy')
+    model.compile(optimizer=nadam_optimizer,
+                  loss='categorical_crossentropy',
+                metrics=['accuracy'])
 
+    print(y_train.shape)
     history = model.fit(X_train_centered, y_train,
                         batch_size=batch_size,
                         epochs=epochs,
