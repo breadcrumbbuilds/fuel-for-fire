@@ -65,7 +65,7 @@ def wopen(fn):
     return f
 
 
-def read_binary(fn):
+def read_binary(fn, to_string=True):
     hdr = hdr_fn(fn)
 
     # read header and print parameters
@@ -73,6 +73,11 @@ def read_binary(fn):
     print("\tsamples", samples, "lines", lines, "bands", bands)
 
     data = read_float(fn)
+    if not to_string:
+        samples = int(samples)
+        lines = int(lines)
+        bands = int(bands)
+
     return samples, lines, bands, data
 
 
