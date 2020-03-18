@@ -9,11 +9,14 @@ from Utils.Helper import rescale
 
 def main():
 
-    visRGB()
+    # TODO: Split both the data and the target
+    s, l, b, X = read_binary('data/data_img/output4_selectS2.bin', to_string=False)
+
+    # TODO: Save split files with coordinates (together with targets?)
 
 # cols, rows, bands, X = read_binary('data/data_img/output4_selectS2.bin', to_string=False)
 
-def visRGB():
+def vis_split_RGB():
     s, l, b, X = read_binary('data/data_img/output4_selectS2.bin', to_string=False)
 
     data_r = X.reshape(b, s * l)
@@ -29,7 +32,7 @@ def visRGB():
     s_rows = l//5
     print(l)
     print(s)
-    print(s_cols)
+    print(s_cols * s_rows)
     print(s_rows)
 
     fig, axs = plt.subplots(5, 2, figsize=(9, 6), sharey=False)
