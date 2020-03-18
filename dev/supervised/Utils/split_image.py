@@ -36,6 +36,8 @@ def vis_split_RGB():
     print(s_rows)
 
     fig, axs = plt.subplots(5, 2, figsize=(9, 6), sharey=False)
+
+    # index the image x_start : x_end, y_start : y_end,  bands
     axs[0,0].imshow(rgb[0:s_rows, 0:s_cols, :])
     axs[0,1].imshow(rgb[0:s_rows, s_cols:s_cols*2, :])
 
