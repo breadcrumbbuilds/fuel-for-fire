@@ -25,7 +25,7 @@ def main():
     test_size = .3
     learning_rate = 0.0000333
     batch_size = 256
-    epochs = 100
+    epochs = 500
 
 
     ## Load Data
@@ -104,28 +104,6 @@ def main():
             kernel_initializer='glorot_uniform',
             bias_initializer='normal',
             activation='relu'),
-
-    #    keras.layers.Dense(
-    #         units=6,
-    #         input_dim=8,
-    #         kernel_initializer='glorot_uniform',
-    #         bias_initializer='zeros',
-    #         activation='tanh'),
-
-    #    keras.layers.Dense(
-    #         units=4,
-    #         input_dim=6,
-    #         kernel_initializer='glorot_uniform',
-    #         bias_initializer='zeros',
-    #         activation='tanh'),
-
-    #    keras.layers.Dense(
-    #         units=2,
-    #         input_dim=4,
-    #         kernel_initializer='glorot_uniform',
-    #         bias_initializer='zeros',
-    #         activation='tanh'),
-
        ## MIDDLE LAYER
        keras.layers.Dense(
             units=11,
@@ -145,6 +123,7 @@ def main():
             kernel_initializer='glorot_uniform',
             bias_initializer='zeros',
             activation='relu'),
+       # Embedded layer
        keras.layers.Dense(
             units=3,
             input_dim=3,
@@ -183,26 +162,44 @@ def main():
 
     model.compile(optimizer=sgd_optimizer,
                   loss='mean_squared_error',
-                metrics=['accuracy', 'mse', ])
+                metrics=['accuracy', 'mse', 'mae' ])
 
     # to visualize training in the browser'
     root_logdir = os.path.join(os.curdir, "logs")
     run_logdir = get_run_logdir(root_logdir)
     tensorboard_cb = keras.callbacks.TensorBoard(run_logdir)
-
+    filepath= os.path.join(os.curdir, "outs/models/weights-improvement-{epoch:02d}-{val_accuracy:.2f}.hdf5")
+    modelsave_cb = keras.callbacks.ModelCheckpoint(filepath, monitor='val_loss', verbose=0, save_best_only=False, save_weights_only=False, mode='auto', period=1)
+    callbacks = [tensorboard_cb, modelsave_cb]
 
     history = model.fit(X_train_centered, X_train_centered,
                         batch_size=batch_size,
                         epochs=epochs,
                         verbose=1,
-                        validation_split=0.1,
+                        validation_split=0.2,
                         shuffle=True,
                         use_multiprocessing=True,
                         workers=-1,
-                        callbacks=[tensorboard_cb])
+                        callbacks=callbacks)
 
-    plt.plot(history.history['accuracy'])
-    plt.show()
+    # now run the training data through the network
+    # pull out all of the three d representations WITH the class
+    # associated and we can plot this!
+
+    # run the test data through
+    # For each sample in the test set, compare that samples
+    # embedded layer (a 3d representation of the original)
+    # to the closest sample of each class in the training set
+    # sum these values, then divide the individual classes distance
+    # by the overall distance observed to get a 'confidence' interval
+    # of the test sample
+
+    print(history.history)
+    # train_results = model.predict(X_train_centered)
+    # print(train_results)
+    plt.title("val accuracy")
+    plt.plot(history.history['val_accuracy'])
+    plt.savefig(get_run_logdir(os.path.join(os.curdir, "outs/autoencoder")))
 
     # print(history)
     # # ## Testing

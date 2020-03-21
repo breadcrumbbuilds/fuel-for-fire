@@ -15,8 +15,16 @@ def main():
     # We are creating spatially consistent sub images, so need the original to be in spatial format
 
     X = X.reshape((cols, rows, bands))
+    # Let's stuff X with the labels (append them), then the labels will be correctly indexed as well
 
     print("Original image shape", X.shape)
+
+    sub_images = create_sub_images(X, cols, rows, bands)
+"""
+    Indexing the original image to produce a
+    collection that contains the entire image
+    chunked into 10 squares"""
+def create_sub_images(X, cols, rows, bands):
     # TODO: Be nice to automate this.. need some type of LCD function ...
     sub_cols = cols//2 # not sure how to automate this yet but I know that these dims will create 10 sub images
     sub_rows = rows//5
@@ -47,9 +55,11 @@ def main():
             index += 1
 
     print("images, width, height, features", sub_images.shape)
-    print()
+    return sub_images
 
-    # TODO: Save split files with coordinates (together with targets?)
+""" A hardcoded sanity check on how to visualize splitting the
+    original image into 10 sub images
+"""
 def vis_split_RGB():
     s, l, b, X = read_binary('data/data_img/output4_selectS2.bin', to_string=False)
 
