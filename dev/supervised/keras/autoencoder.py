@@ -23,9 +23,9 @@ def main():
 
     ## Config
     test_size = .3
-    learning_rate = 0.000333
-    batch_size = 512
-    epochs = 10
+    learning_rate = 0.0000333
+    batch_size = 256
+    epochs = 100
 
 
     ## Load Data
@@ -128,20 +128,44 @@ def main():
 
        ## MIDDLE LAYER
        keras.layers.Dense(
-            units=6,
+            units=11,
             input_dim=11,
             kernel_initializer='glorot_uniform',
             bias_initializer='zeros',
             activation='relu'),
+       keras.layers.Dense(
+            units=8,
+            input_dim=11,
+            kernel_initializer='glorot_uniform',
+            bias_initializer='zeros',
+            activation='relu'),
+       keras.layers.Dense(
+            units=5,
+            input_dim=8,
+            kernel_initializer='glorot_uniform',
+            bias_initializer='zeros',
+            activation='relu'),
+       keras.layers.Dense(
+            units=3,
+            input_dim=3,
+            kernel_initializer='glorot_uniform',
+            bias_initializer='zeros',
+            activation='relu'),
+       keras.layers.Dense(
+            units=5,
+            input_dim=3,
+            kernel_initializer='glorot_uniform',
+            bias_initializer='zeros',
+            activation='relu'),
         keras.layers.Dense(
-            units=6,
-            input_dim=6,
+            units=8,
+            input_dim=5,
             kernel_initializer='glorot_uniform',
             bias_initializer='zeros',
             activation='relu'),
         keras.layers.Dense(
             units=11,
-            input_dim=6,
+            input_dim=8,
             kernel_initializer='glorot_uniform',
             bias_initializer='zeros',
             activation='relu'),
@@ -154,12 +178,18 @@ def main():
         )])
 
     sgd_optimizer = keras.optimizers.SGD(
-        lr=learning_rate, decay=1e-5, momentum=.9
+        lr=learning_rate, decay=1e-6, momentum=.95
     )
 
     model.compile(optimizer=sgd_optimizer,
                   loss='mean_squared_error',
-                metrics=['accuracy'])
+                metrics=['accuracy', 'mse', ])
+
+    # to visualize training in the browser'
+    root_logdir = os.path.join(os.curdir, "logs")
+    run_logdir = get_run_logdir(root_logdir)
+    tensorboard_cb = keras.callbacks.TensorBoard(run_logdir)
+
 
     history = model.fit(X_train_centered, X_train_centered,
                         batch_size=batch_size,
@@ -168,23 +198,34 @@ def main():
                         validation_split=0.1,
                         shuffle=True,
                         use_multiprocessing=True,
-                        workers=-1)
+                        workers=-1,
+                        callbacks=[tensorboard_cb])
 
-    print(history)
-    # ## Testing
+    plt.plot(history.history['accuracy'])
+    plt.show()
 
-    y_train_pred = model.predict_classes(X_train_centered,
-                                         verbose=1)
-    correct_preds = np.sum(y_train == y_train_pred, axis=0)
-    train_acc = correct_preds / y_train.shape[0]
-    print('Training Accuracy: %.2f%%' % (train_acc * 100))
+    # print(history)
+    # # ## Testing
+
+    # y_train_pred = model.predict_classes(X_train_centered,
+    #                                      verbose=1)
+    # correct_preds = np.sum(y_train == y_train_pred, axis=0)
+    # train_acc = correct_preds / y_train.shape[0]
+    # print('Training Accuracy: %.2f%%' % (train_acc * 100))
 
 
-    y_test_pred = model.predict_classes(X_test_centered,
-                                        verbose=1)
-    correct_preds = np.sum(y_test == y_test_pred, axis=0)
-    test_acc = correct_preds / y_test.shape[0]
-    print('Test accuracy: %.2f%%' % (test_acc * 100))
+    # y_test_pred = model.predict_classes(X_test_centered,
+    #                                     verbose=1)
+    # correct_preds = np.sum(y_test == y_test_pred, axis=0)
+    # test_acc = correct_preds / y_test.shape[0]
+    # print('Test accuracy: %.2f%%' % (test_acc * 100))
+
+
+
+def get_run_logdir(root_logdir):
+    import time
+    run_id = time.strftime("run__%Y_%m_%d-%H_%M_%S")
+    return os.path.join(root_logdir, run_id)
 
 
 def one_hot_sanity_check(target, xs, xl):
