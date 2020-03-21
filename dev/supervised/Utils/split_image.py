@@ -10,12 +10,46 @@ from Utils.Helper import rescale
 def main():
 
     # TODO: Split both the data and the target
-    s, l, b, X = read_binary('data/data_img/output4_selectS2.bin', to_string=False)
+    cols, rows, bands, X = read_binary('data/data_img/output4_selectS2.bin', to_string=False)
+
+    # We are creating spatially consistent sub images, so need the original to be in spatial format
+
+    X = X.reshape((cols, rows, bands))
+
+    print("Original image shape", X.shape)
+    # TODO: Be nice to automate this.. need some type of LCD function ...
+    sub_cols = cols//2 # not sure how to automate this yet but I know that these dims will create 10 sub images
+    sub_rows = rows//5
+    # shape of the sub images [sub_cols, sub_rows, bands]
+    print("New subimage shape (%s, %s, %s)" % (sub_cols, sub_rows, bands))
+
+    # container for the sub images
+    sub_images = np.zeros((10, sub_cols, sub_rows, bands))
+
+    # this will grab a sub set of the original image beginning with the top left corner, then the right top corner
+    # and iteratively move down the image from left to right
+
+    """
+    Original image         subimages
+    --------                --------
+    |      |                [  ][  ]
+    |      |                [  ][  ]
+    |      |                [  ][  ]
+    |      |                [  ][  ]
+    |      |                [  ][  ]
+    --------                --------
+    """
+    index = 0 # to index the container above for storing each sub image
+    for row in range(5): # represents the 5 'rows' of this image
+        for col in range(2): # represents the left and right side of the image split down the middle
+
+            sub_images[index, :,:,:] = X[sub_cols * col : sub_cols * (col + 1), sub_rows * row : sub_rows * (row + 1), :]
+            index += 1
+
+    print("images, width, height, features", sub_images.shape)
+    print()
 
     # TODO: Save split files with coordinates (together with targets?)
-
-# cols, rows, bands, X = read_binary('data/data_img/output4_selectS2.bin', to_string=False)
-
 def vis_split_RGB():
     s, l, b, X = read_binary('data/data_img/output4_selectS2.bin', to_string=False)
 
@@ -104,5 +138,4 @@ if __name__ == "__main__":
 
 #     plt.imshow(rgb)
 #     plt.show()
-
 #     print(img.shape)
