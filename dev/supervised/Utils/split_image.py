@@ -19,7 +19,56 @@ def main():
 
     print("Original image shape", X.shape)
 
+    # this creates equally sized subimages of the original image
     sub_images = create_sub_images(X, cols, rows, bands)
+
+    # figure out how many white pixels we need to add total
+    w = div_by_10(sub_images.shape[1])
+    h =  div_by_10(sub_images.shape[2])
+    t, r, l, b = padding(w, h)
+
+    img = sub_images[1,:,:,:]
+    print(img.shape)
+    # make array of zeros that has the image with the paddings size
+    tmp = np.zeros((img.shape[0] + l + r, img.shape[1] + t + b, img.shape[2]), dtype=np.float32)
+
+    tmp[l+1 : img.shape[0] + r, t + 1 : img.shape[1] + b, :] = img
+
+    hist, bins = np.histogram(tmp)
+    plt.hist(hist)
+    plt.title("histogram of padded data")
+    plt.show()
+    # val, count = np.unique(tmp, return_counts=True)
+    # print()
+
+    # for x in range(sub_images.shape[0]): # for each sub image
+
+def padding(w, h):
+    l, r = split_padding(w)
+    t, b = split_padding(h)
+    l = int(l)
+    r = int(r)
+    t = int(t)
+    b = int(b)
+
+    return t, r, l, b
+
+
+def split_padding(dim):
+    a = dim // 2
+    b = dim - a
+    a = int(a)
+    b = int(b)
+    return a, b
+
+
+def div_by_10(dim):
+    pixels_to_add = 0
+
+    while dim % 10 != 0:
+        dim += 1
+        pixels_to_add += 1
+    return pixels_to_add
 """
     Indexing the original image to produce a
     collection that contains the entire image
