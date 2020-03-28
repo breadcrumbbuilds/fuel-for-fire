@@ -18,14 +18,16 @@ from Utils.Helper import rescale
 def main():
 
     test_size = 0.3
-    n_estimators = 25
-    n_features =7
-    target = {
-        # "broadleaf" : "BROADLEAF_SP.tif_proj.bin",
-        # "ccut" : "CCUTBL_SP.tif_proj.bin",
-        # "conifer" : "CONIFER_SP.tif_proj.bin",
-        # "exposed" : "EXPOSED_SP.tif_proj.bin",
-        # "herb" : "HERB_GRAS_SP.tif_proj.bin",
+    n_estimators = 500
+    n_features =.42
+
+    ## Load Data
+    targetB = {
+        "broadleaf" : "BROADLEAF_SP.tif_proj.bin",
+        "ccut" : "CCUTBL_SP.tif_proj.bin",
+        "conifer" : "CONIFER_SP.tif_proj.bin",
+        "exposed" : "EXPOSED_SP.tif_proj.bin",
+        "herb" : "HERB_GRAS_SP.tif_proj.bin",
         "mixed" : "MIXED_SP.tif_proj.bin",
         "river" : "RiversSP.tif_proj.bin",
         # "road" : "RoadsSP.tif_proj.bin",
@@ -33,8 +35,26 @@ def main():
         # "vri" : "vri_s3_objid2.tif_proj.bin",
         "water" : "WATERSP.tif_proj.bin",
     }
-
-    xs, xl, xb, X = read_binary('data/data_img/output4_selectS2.bin')
+    target = {
+        # "broadleaf" : "BROADLEAF_SP.tif_project_4x.bin_sub.bin",
+        # "ccut" : "CCUTBL_SP.tif_project_4x.bin_sub.bin",
+        # "conifer" : "CONIFER_SP.tif_project_4x.bin_sub.bin",
+        # "exposed" : "EXPOSED_SP.tif_project_4x.bin_sub.bin",
+        # "herb" : "HERB_GRAS_SP.tif_project_4x.bin_sub.bin",
+        # "mixed" : "MIXED_SP.tif_project_4x.bin_sub.bin",
+        # "river" : "RiversSP.tif_project_4x.bin_sub.bin",
+        # # "road" : "RoadsSP.tif_proj.bin",
+        # "shrub" : "SHRUB_SP.tif_project_4x.bin_sub.bin",
+        # # "vri" : "vri_s3_objid2.tif_proj.bin",
+        "water" : "WATERSP.tif_project_4x.bin_sub.bin",
+    }
+ # output4_selectS2.bin
+ # S2A.bin_4x.bin_sub.bin
+ # read_binary('data/data_img/output4_selectS2.bin')
+    training_image = 'S2A.bin_4x.bin_sub.bin'
+    path = 'data/elhill'
+    training_image_path = f'{path}/data_img/{training_image}'
+    xs, xl, xb, X = read_binary(training_image_path)
     xs = int(xs)
     xl = int(xl)
     xb = int(xb)
@@ -42,7 +62,7 @@ def main():
     for _, target_to_train in enumerate(target.keys()):
         file = 'RandForest/%s_%s_%s.png' % (target_to_train, n_estimators, n_features)
 
-        ys,yl,yb, y = read_binary('data/data_bcgw/%s' % target[target_to_train])
+        ys,yl,yb, y = read_binary(f'{path}/data_bcgw/%s' % target[target_to_train])
 
         assert int(xs) == int(ys)
         assert int(xl) == int(yl)
@@ -64,7 +84,8 @@ def main():
         forest = RandomForestClassifier(n_estimators=n_estimators,
                                         random_state=2,
                                         max_features=n_features,
-                                        n_jobs=8,
+                                        max_depth=16,
+                                        n_jobs=-1,
                                         verbose=1)
 
         start_fit = time.time()
@@ -77,8 +98,8 @@ def main():
         end_predict = time.time()
         predict_time = round(end_predict - start_predict,2)
 
-        confmatTest = confusion_matrix(y_true=y_test, y_pred=forest.predict(X_test))/len(y_test)
-        confmatTrain = confusion_matrix(y_true=y_train, y_pred=forest.predict(X_train))/len(y_train)
+        confmatTest = confusion_matrix(y_true=y_test, y_pred=forest.predict(X_test))
+        confmatTrain = confusion_matrix(y_true=y_train, y_pred=forest.predict(X_train))
 
         importances = forest.feature_importances_
         indices = np.argsort(importances)[::-1]
@@ -104,7 +125,7 @@ def main():
                 loc='center left',
                 ncol=4)
         axs[0,0].set_title('Sentinel2')
-        axs[0,0].imshow(RGB())
+        axs[0,0].imshow(RGB(training_image_path))
 
         axs[0,1].set_title('Reference')
         axs[0,1].imshow(y.reshape(int(yl), int(ys)), cmap='gray')
@@ -127,9 +148,9 @@ def main():
             for j in range(confmatTest.shape[1]):
                 axs[1,0].text(x=j, y=i,
                         s=round(confmatTest[i,j],3))
-        axs[1,0].set_xticklabels([0, 'True', 'False'])
+        axs[1,0].set_xticklabels([0, 'False', 'True'])
         axs[1,0].xaxis.set_ticks_position('bottom')
-        axs[1,0].set_yticklabels([0, 'True', 'False'])
+        axs[1,0].set_yticklabels([0, 'False', 'True'])
         axs[1,0].set_xlabel('predicted label')
         axs[1,0].set_ylabel('true label')
 
@@ -140,9 +161,9 @@ def main():
             for j in range(confmatTrain.shape[1]):
                 axs[1,1].text(x=j, y=i,
                         s=round(confmatTrain[i,j],3))
-        axs[1,1].set_xticklabels([0, 'True', 'False'])
+        axs[1,1].set_xticklabels([0, 'False', 'True'])
         axs[1,1].xaxis.set_ticks_position('bottom')
-        axs[1,1].set_yticklabels([0, 'True', 'False'])
+        axs[1,1].set_yticklabels([0, 'False', 'True'])
         axs[1,1].set_xlabel('predicted label')
         axs[1,1].set_ylabel('true label')
         axs[1,1].margins(x=10)
@@ -163,8 +184,8 @@ def main():
         plt.savefig('outs/%s.png' % file)
 
 
-def RGB():
-    samples, lines, bands, X = read_binary('data/data_img/output4_selectS2.bin')
+def RGB(path):
+    samples, lines, bands, X = read_binary(path)
     s = int(samples)
     l = int(lines)
     b = int(bands)
@@ -172,11 +193,12 @@ def RGB():
     rgb = np.zeros((l, s, 3))
 
     for i in range(0, 3):
-        rgb[:, :, i] = data_r[4 - i, :].reshape((l, s))
+        rgb[:, :, i] = data_r[3 - i, :].reshape((l, s))
     for i in range(0,3):
         rgb[:, :, i] = rescale(rgb[:, :, i])
     del X
     return rgb
+
 
 def build_vis(prediction, y, shape):
    #rgb = rgb.reshape(164410, 3) # HACKY
@@ -198,7 +220,6 @@ def build_vis(prediction, y, shape):
             # True Negative
             visualization[idx, ] = [0,0,1]
             # visualization[idx, ] = rgb
-
 
         else:
             raise Exception("There was a problem predicting the pixel", idx)

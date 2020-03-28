@@ -83,7 +83,7 @@ def run(key):
                 "Test Acc.: %s" % round(test_score,3),
                 "Train Acc.: %s" % round(train_score,3),
                 "Test Size: %s" % test_size,
-                "Train: %ss" % fit_time,
+                "Train: %s" % fit_time,
                 "Predict: %ss" % predict_time,
                 "Estimators: %s" % n_estimators,
                 "Max Features: %s" % n_features),
