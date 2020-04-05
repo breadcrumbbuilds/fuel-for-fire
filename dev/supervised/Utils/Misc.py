@@ -77,7 +77,6 @@ def read_binary(fn, to_string=True):
         samples = int(samples)
         lines = int(lines)
         bands = int(bands)
-
     return samples, lines, bands, data
 
 
