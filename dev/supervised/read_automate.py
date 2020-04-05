@@ -43,6 +43,7 @@ def read_data(subpath, collection='numpy'):
         "water": "WATER.bin",
     }
 
+    # assume neither exists
     Sentinel = None
     Landsat = None
 
@@ -59,6 +60,7 @@ def read_data(subpath, collection='numpy'):
     except:
         print("error reading training images")
 
+    # Check that the data holders exist now
     if type(Sentinel) is not None and type(Landsat) is not None:
 
         # Assert that the two images are in fact the same dimension
@@ -68,7 +70,7 @@ def read_data(subpath, collection='numpy'):
         assert int(sentinel_rows) == int(landsat_rows)
         td_rows = int(sentinel_rows)
 
-        # Get the data into a shape we can understand (samples by channels)
+       # Get the data into a shape we can understand (samples by channels)
         Sentinel = Sentinel.reshape(
             (sentinel_cols * sentinel_rows, sentinel_bands))
         Landsat = Landsat.reshape(
@@ -79,11 +81,12 @@ def read_data(subpath, collection='numpy'):
 
         # we are happy with our assertions, let's store this stuff together
         shape = td_cols, td_rows, td_bands
-
         result = buildit((Sentinel, Landsat), shape, collection, targets)
 
-    # We only found a Landsat data
-    elif type(Sentinel) is None and type(Landsat) is not None:
+   # Now we have the right shape of this puppy
+   elif type(Sentinel) is None and type(Landsat) is None:
+        print("There's no damn data to read")
+   elif type(Sentinel) is None and type(Landsat) is not None:
         print("No Sentinel")
 
     # We only found a Sentinel data
@@ -118,9 +121,17 @@ def read_data(subpath, collection='numpy'):
     return result
 
 
-def buildit(data, shape, collection, targets):
-    return np.concatenate((data[0], data[1]), axis=1)
 
+def buildit(data, shape, collection, targets):
+    print(len(targets))
+
+    if collection == 'pandas':
+        for d in data:
+            print(d.shape)
+    else:
+        result = np.concatenate((data[0], data[1]), axis=1)
+
+        print(result.shape)
 
 x = read_data('zoom', collection='pandas')
 
@@ -132,3 +143,7 @@ np.savetxt("small_data.csv", x, delimiter=',')
 #     stack = np.hstack(x[:, idx])
 #     plt.hist(stack, alpha=0.5, bins='auto')
 #     plt.show()
+
+# read_data('zoom', collection='pandas')
+read_data('zoom')
+
