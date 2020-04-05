@@ -218,7 +218,7 @@ def build_vis(prediction, y, shape):
             # visualization[idx, ] = rgb
 
         else:
-            raise Exception("There was a problem predicting the pixel", idx)
+            raise Exception("There was a problem comparing the pixel", idx)
 
     return visualization.reshape(shape)
 

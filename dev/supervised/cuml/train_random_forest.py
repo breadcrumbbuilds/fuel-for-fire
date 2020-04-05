@@ -76,6 +76,7 @@ def main():
     # sanity check for the encoding
     # expect to see false samples at 0. and
     # true samples at 1.
+    print('\nhistogram of onehot encoded array')
     print(np.histogram(y,bins=2))
 
     X_train, X_test, y_train, y_test = \
