@@ -25,9 +25,8 @@ def main():
     print("Numpy Version: %s" % np.__version__)
     print("cuML Version: %s" % cuml.__version__)
 
-    ## Config
-    test_size = .3
-    # params for the forest
+    test_size = .3 # float representing the percentage of test samples split
+    # the available configuralbe params for cuML RF
     cu_rf_params = {
         'n_estimators': 100,
         'max_depth': 16,
@@ -39,7 +38,7 @@ def main():
         'min_impurity_decrease': 0.0,
         'bootstrap': True,
         'bootstrap_features': False,
-        'verbose': False,
+        'verbose': True,
         'rows_sample': 1.0,
         'max_leaves': -1,
         'quantile_per_tree': False
