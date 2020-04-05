@@ -39,6 +39,8 @@ def read_data(subpath, collection='numpy'):
         # "vri" : "vri.bin",
         "water" : "WATER.bin",
     }
+
+    # assume neither exists
     Sentinel = None
     Landsat = None
     # Start by reading in the training images
@@ -52,6 +54,7 @@ def read_data(subpath, collection='numpy'):
 
     ##      Start building the dataframe or numpy array
 
+    # Check that the data holders exist now
     if type(Sentinel) is not None and type(Landsat) is not None:
 
         # Build the shape of this puppy first then lets make a dataframe to store it
@@ -61,14 +64,18 @@ def read_data(subpath, collection='numpy'):
         assert int(sentinel_rows) == int(landsat_rows)
         td_rows = int(sentinel_rows)
 
+        # Reshape the data band-wise before we screw arround with moving it into different collections
+        Sentinel = Sentinel.reshape((td_cols * td_rows ), int(sentinel_bands))
+        Landsat = Landsat.reshape((td_cols * td_rows ), int(landsat_bands))
+
         td_bands = int(sentinel_bands) + int(landsat_bands)
         shape = td_cols, td_rows, td_bands
-
         result = buildit((Sentinel, Landsat), shape, collection, targets)
 
-        train_data = np.concatenate(Sentinel, Landsat)
+
         # Now we have the right shape of this puppy
     elif type(Sentinel) is None and type(Landsat) is None:
+
         print("There's no damn data to read")
     elif type(Sentinel) is None and type(Landsat) is not None:
         print("No Sentinel")
@@ -96,13 +103,17 @@ def read_data(subpath, collection='numpy'):
 
     return result
 
-def buildit(data, shape, collection):
+def buildit(data, shape, collection, targets):
+    print(len(targets))
 
     if collection == 'pandas':
+        for d in data:
+            print(d.shape)
+    else:
+        result = np.concatenate((data[0], data[1]), axis=1)
 
-        pass
-    else # Assume it's numpy for now
+        print(result.shape)
 
 
-
-read_data('zoom', collection='pandas')
+# read_data('zoom', collection='pandas')
+read_data('zoom')
