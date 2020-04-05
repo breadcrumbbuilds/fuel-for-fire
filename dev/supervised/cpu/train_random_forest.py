@@ -62,6 +62,7 @@ def main():
 
     xs, xl, xb, X = read_binary(f'{raw_data_root}S2A.bin', to_string=False)
 
+    X = X.reshape(xl * xs, xb)
     # Loop through all the target images
     for _, target_to_train in enumerate(target.keys()):
 
@@ -70,15 +71,12 @@ def main():
         assert xs == ys
         assert xl == yl
 
-        X = X.reshape(xl*xs, xb)
 
         y = binary_encode(target_to_train, y)
         y = y.reshape(int(yl)*int(ys))
 
         X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=test_size)
 
-        feat_labels = [str(x) for x in range(X.shape[1])]
-        feat_labels = np.asarray(feat_labels)
         forest = RandomForestClassifier(**sklearn_rf_params)
 
         start_fit = time.time()

@@ -26,7 +26,7 @@ def main():
     print("cuML Version: %s" % cuml.__version__)
 
     test_size = .3 # float representing the percentage of test samples split
-    # the available configuralbe params for cuML RF
+    # the available configuralbe params for cuML
     cu_rf_params = {
         'n_estimators': 100,
         'max_depth': 16,
@@ -69,7 +69,7 @@ def main():
     # This portion of the code is a prime candidate for
     # scrutiny
     onehot = encode_one_hot(target, xs, xl, array=True)
-    onehot = onehot.astype(np.int32)
+    onehot = onehot.astype(np.int32) # cuML wants a 32 bit int
 
     y = onehot[:,0] # we commented out all the other samples, 0th entry is water here
 
@@ -81,29 +81,24 @@ def main():
     X_train, X_test, y_train, y_test = \
     train_test_split(X, y, test_size=test_size) # scikit learn helper split function
 
-    print(f'X_train: {X_train.shape[0]} elements')
-    print(f'X_test: {X_test.shape[0]} elements')
-    print(f'y_train: {y_train.shape[0]} elements')
-    print(f'y_test: {y_test.shape[0]} elements')
-
-    cu_rf = cuRF(**cu_rf_params)
+    forest = cuRF(**cu_rf_params)
 
     start_fit = time.time()
-    cu_rf.fit(X_train, y_train)
+    forest.fit(X_train, y_train)
     end_fit = time.time()
 
     start_predict = time.time()
-    pred = cu_rf.predict(X)
+    pred = forest.predict(X)
     end_predict = time.time()
 
     fit_time = round(end_fit - start_fit,2)
     predict_time = round(end_predict - start_predict, 2)
 
-    confmatTest = confusion_matrix(y_true=y_test, y_pred=cu_rf.predict(X_test))
-    confmatTrain = confusion_matrix(y_true=y_train, y_pred=cu_rf.predict(X_train))
+    confmatTest = confusion_matrix(y_true=y_test, y_pred=forest.predict(X_test))
+    confmatTrain = confusion_matrix(y_true=y_train, y_pred=forest.predict(X_train))
 
-    train_score = cu_rf.score(X_train, y_train)
-    test_score = cu_rf.score(X_test, y_test)
+    train_score = forest.score(X_train, y_train)
+    test_score = forest.score(X_test, y_test)
 
     # user made function to produce a visual of True pos, False Pos, False Neg, and True Neg
     visualization = build_vis(pred,y, (xl,xs, 3))
