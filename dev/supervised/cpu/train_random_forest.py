@@ -31,9 +31,9 @@ def main():
     randforest = False
 
     param_grid = [{
-        'n_estimators': [2,1000,20000],
-        'max_features': [0.1,0.2,0.3],
-        'max_depth': [1,2,4,8],
+        'n_estimators': [200],
+        'max_features': [0.2],
+        'max_depth': [2],
         'verbose':[1],
     }]
     max_depth = 5
@@ -56,7 +56,7 @@ def main():
         "water": "WATER.bin",
     }
     classifiers = (
-        RandomForestClassifier(),
+        #RandomForestClassifier(),
         GradientBoostingClassifier(),
         ExtraTreesClassifier()
     )
@@ -98,6 +98,7 @@ def main():
 
             
             end_fit = time.time()
+
             if not os.path.exists('models'):
                 os.mkdir('models')
             if not os.path.exists('models/grid_search'):
@@ -200,9 +201,9 @@ def main():
             print('creating outs/GridSearchForest in root')
             os.mkdir('outs/GridSearchForest/')
         
-        print(f'saving {fn} in outs/GridSearchForest')
+        print(f'saving {fn.split("/")[2]} in outs/GridSearchForest')
         plt.savefig('outs/GridSearchForest/%s.png' % fn.split('/')[2])
-        plt.show()
+        # plt.show()
 
 
 def RGB(path):
