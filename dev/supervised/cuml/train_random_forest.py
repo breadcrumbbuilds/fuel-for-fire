@@ -3,6 +3,8 @@ from cuml.metrics.accuracy import accuracy_score
 from cuml import RandomForestClassifier as cuRF
 from sklearn.model_selection import train_test_split
 from sklearn.metrics import confusion_matrix
+from sklearn.preprocessing import StandardScaler
+
 from matplotlib.patches import Rectangle
 import matplotlib.patches as mpatches
 import matplotlib.pyplot as plt
@@ -28,16 +30,16 @@ def main():
     test_size = .3 # float representing the percentage of test samples split
     # the available configuralbe params for cuML
     cu_rf_params = {
-        'n_estimators': 100,
-        'max_depth': 16,
-        'max_features': 'auto',
-        'n_bins': 8,
+        'n_estimators': 10000,
+        'max_depth': 3,
+        'max_features': 0.5,
+        'n_bins': 3,
         'split_algo': 1,
         'split_criterion': 0,
         'min_rows_per_node': 2,
         'min_impurity_decrease': 0.0,
         'bootstrap': True,
-        'bootstrap_features': False,
+        'bootstrap_features': True,
         'verbose': True,
         'rows_sample': 1.0,
         'max_leaves': -1,
@@ -64,7 +66,7 @@ def main():
     xs, xl, xb, X = read_binary(f'{raw_data_root}S2A.bin', to_string=False)
 
     X = X.reshape(xl * xs, xb)
-
+    X = StandardScaler().fit_transform(X)
     # There's harded coded paths in this function as well
     # This portion of the code is a prime candidate for
     # scrutiny
@@ -116,7 +118,8 @@ def main():
                 "Train: %ss" % fit_time,
                 "Predict: %ss" % predict_time,
                 "Estimators: %s" % cu_rf_params['n_estimators'],
-                "Max Depth: %s" % cu_rf_params['max_depth']),
+                "Max Depth: %s" % cu_rf_params['max_depth'],
+                "Max Features: %s" % cu_rf_params['max_features']),
                loc='lower right',
                ncol=3)
 
