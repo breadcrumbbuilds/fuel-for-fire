@@ -31,9 +31,9 @@ def main():
     randforest = False
 
     params = {
-        'n_estimators': 100000,
+        'n_estimators': 100,
         'max_features': 0.1,
-        'max_depth': 3,
+        'max_depth': 5,
         'verbose': 1,
         'subsample': 0.5
     }
@@ -87,7 +87,7 @@ def main():
         if not os.path.exists('models/grid_search'):
             os.mkdir('models/grid_search')
 
-        fn = f'models/gradient_boosting/GB_{clf.get_params()["n_estimators"]}_{clf.params["max_features"]}_{clf.params["max_depth"]}.pkl'
+        fn = f'outs/models/gradient_boosting/GB_{clf.get_params()["n_estimators"]}_{clf.get_params()["max_features"]}_{clf.get_params()["max_depth"]}.pkl'
         # saves the model, compress stores the result in one model
         joblib.dump(clf, fn, compress = 1)
 
@@ -182,7 +182,7 @@ def main():
 
     print(f'saving {fn.split("/")[2]} in outs/GradientBoosting')
     plt.savefig('outs/GradientBoosting/%s.png' % fn.split('/')[2])
-    # plt.show()
+    plt.show()
 
 
 def RGB(path):
