@@ -49,7 +49,7 @@ def main():
         # "mixed" : "MIXED.bin",
         # "river" : "RIVERS.bin",
         # # "road" : "ROADS.bin",
-        "shrub" : "SHRUB.bin",
+        # "shrub" : "SHRUB.bin",
         # "vri" : "vri_s3_objid2.tif_proj.bin",
         "water": "WATER.bin",
     }

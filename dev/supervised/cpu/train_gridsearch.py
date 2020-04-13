@@ -31,11 +31,13 @@ def main():
     randforest = False
 
     param_grid = [{
-        'n_estimators': [10000],
-        'max_features': [0.3],
-        'max_depth': [3],
+        'n_estimators': [100, 500, 1000],
+        'max_features': [0.1, 0.3],
+        'max_depth': [1, 3, 9],
         'verbose':[1],
-        'subsample': [0.25, 0.5, .75, 1]
+        'subsample': [0.5, 1],
+        'learning_rate': [0.1, 0.01]
+
     }]
 
     classifiers = (
