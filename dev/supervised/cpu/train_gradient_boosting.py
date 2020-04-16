@@ -1,8 +1,4 @@
-from sklearn.ensemble import RandomForestClassifier
-
 from sklearn.ensemble import GradientBoostingClassifier
-
-from sklearn.ensemble import ExtraTreesClassifier
 
 from sklearn.linear_model import SGDClassifier
 from sklearn.preprocessing import StandardScaler
@@ -28,30 +24,31 @@ raw_data_root = f"{root_path}data_img/"
 
 
 def main():
-    randforest = False
 
     params = {
-        'n_estimators': 100,
+        'n_estimators': 1000,
         'max_features': 0.1,
         'max_depth': 5,
         'verbose': 1,
-        'subsample': 0.5
+        # 'subsample': 0.5,
     }
     test_size = 0.3
 
     # Load Data
+    # data ordered by the most frequent amount of instances
+
     target = {
-        # "broadleaf" : "BROADLEAF.bin",
-        # "ccut" : "CCUTBL.bin",
-        # "conifer" : "CONIFER.bin",
-        # "exposed" : "EXPOSED.bin",
-        # "herb" : "HERB.bin",
-        # "mixed" : "MIXED.bin",
-        # "river" : "RIVERS.bin",
-        # # "road" : "ROADS.bin",
-        # "shrub" : "SHRUB.bin",
-        # "vri" : "vri_s3_objid2.tif_proj.bin",
+        "conifer" : "CONIFER.bin",
+        "ccut" : "CCUTBL.bin",
         "water": "WATER.bin",
+        "broadleaf" : "BROADLEAF.bin",
+        "shrub" : "SHRUB.bin",
+        "mixed" : "MIXED.bin",
+        "herb" : "HERB.bin",
+        "exposed" : "EXPOSED.bin",
+        "river" : "Rivers.bin",
+        # "road" : "ROADS.bin",
+        # "vri" : "vri_s3_objid2.tif_proj.bin",
     }
 
     xs, xl, xb, X = read_binary(f'{raw_data_root}S2A.bin', to_string=False)
@@ -60,118 +57,113 @@ def main():
     X = StandardScaler().fit_transform(X)  # standardize unit variance and 0 mean
 
 
-    for _, target_to_train in enumerate(target.keys()):
+    clf = GradientBoostingClassifier(**params)
 
-        clf = GradientBoostingClassifier(**params)
+    # Load the labels for the binary classifier we aim to train
+    y = encode_one_hot(target, xs, xl, array=True)
 
-        # Load the labels for the binary classifier we aim to train
-        ys, yl, yb, y = read_binary(
-            f'{reference_data_root}%s' % target[target_to_train], to_string=False)
+    y = y.reshape(int(xl)*int(xs))
 
-        assert xs == ys
-        assert xl == yl
 
-        y = binary_encode(target_to_train, y)
-        y = y.reshape(int(yl)*int(ys))
+    print(f"Onehot shape: {y.shape}")
+    X_train, X_test, y_train, y_test = train_test_split(
+        X, y, test_size=test_size, shuffle=True)
 
-        X_train, X_test, y_train, y_test = train_test_split(
-            X, y, test_size=test_size, shuffle=True)
+    start_fit = time.time()
+    clf.fit(X_train, y_train)
+    end_fit = time.time()
 
-        start_fit = time.time()
-        clf.fit(X_train, y_train)
-        end_fit = time.time()
+    # Save the classifier in the models dir
+    if not os.path.exists('models'):
+        os.mkdir('models')
+    if not os.path.exists('models/grid_search'):
+        os.mkdir('models/grid_search')
 
-        # Save the classifier in the models dir
-        if not os.path.exists('models'):
-            os.mkdir('models')
-        if not os.path.exists('models/grid_search'):
-            os.mkdir('models/grid_search')
+    fn = f'outs/models/gradient_boosting/GB_{clf.get_params()["n_estimators"]}_{clf.get_params()["max_features"]}_{clf.get_params()["max_depth"]}.pkl'
+    # saves the model, compress stores the result in one model
+    joblib.dump(clf, fn, compress = 1)
 
-        fn = f'outs/models/gradient_boosting/GB_{clf.get_params()["n_estimators"]}_{clf.get_params()["max_features"]}_{clf.get_params()["max_depth"]}.pkl'
-        # saves the model, compress stores the result in one model
-        joblib.dump(clf, fn, compress = 1)
+    start_predict = time.time()
+    pred = clf.predict(X)
+    end_predict = time.time()
 
-        start_predict = time.time()
-        pred = clf.predict(X)
-        end_predict = time.time()
+    fit_time = round(end_fit - start_fit, 2)
+    predict_time = round(end_predict - start_predict, 2)
 
-        fit_time = round(end_fit - start_fit, 2)
-        predict_time = round(end_predict - start_predict, 2)
+    confmatTest = confusion_matrix(
+        y_true=y_test, y_pred=clf.predict(X_test))
+    confmatTrain = confusion_matrix(
+        y_true=y_train, y_pred=clf.predict(X_train))
 
-        confmatTest = confusion_matrix(
-            y_true=y_test, y_pred=clf.predict(X_test))
-        confmatTrain = confusion_matrix(
-            y_true=y_train, y_pred=clf.predict(X_train))
+    train_score = clf.score(X_train, y_train)
+    test_score = clf.score(X_test, y_test)
 
-        train_score = clf.score(X_train, y_train)
-        test_score = clf.score(X_test, y_test)
+    visualization = build_vis(pred, y, (int(yl), int(ys), 3))
 
-        visualization = build_vis(pred, y, (int(yl), int(ys), 3))
+    fig, axs = plt.subplots(2, 3, figsize=(15, 8), sharey=False)
 
-        fig, axs = plt.subplots(2, 3, figsize=(15, 8), sharey=False)
+    ex = Rectangle((0, 0), 0, 0, fc="w", fill=False,
+                    edgecolor='none', linewidth=0)
+    fig.legend([ex, ex, ex, ex, ex, ex, ex, ex, ex, ex],
+                ("Target: %s" % "Water",
+                "Test Acc.: %s" % round(test_score, 3),
+                "Train Acc.: %s" % round(train_score, 3),
+                "Test Size: %s" % test_size,
+                "Train: %ss" % fit_time,
+                "Predict: %ss" % predict_time,
+                "Estimators: %s" % clf.get_params()['n_estimators'],
+                "Max Features: %s" % clf.get_params()['max_features'],
+                "Max Depth: %s" % clf.get_params()['max_depth']),
 
-        ex = Rectangle((0, 0), 0, 0, fc="w", fill=False,
-                        edgecolor='none', linewidth=0)
-        fig.legend([ex, ex, ex, ex, ex, ex, ex, ex, ex, ex],
-                    ("Target: %s" % "Water",
-                    "Test Acc.: %s" % round(test_score, 3),
-                    "Train Acc.: %s" % round(train_score, 3),
-                    "Test Size: %s" % test_size,
-                    "Train: %ss" % fit_time,
-                    "Predict: %ss" % predict_time,
-                    "Estimators: %s" % clf.get_params()['n_estimators'],
-                    "Max Features: %s" % clf.get_params()['max_features'],
-                    "Max Depth: %s" % clf.get_params()['max_depth']),
+                loc='lower right',
+                ncol=3)
 
-                    loc='lower right',
-                    ncol=3)
+    axs[0, 0].set_title('Reference')
+    axs[0, 0].imshow(y.reshape(xl, xs), cmap='gray')
 
-        axs[0, 0].set_title('Reference')
-        axs[0, 0].imshow(y.reshape(xl, xs), cmap='gray')
+    axs[0, 1].set_title('Prediction')
+    axs[0, 1].imshow(pred.reshape(xl, xs), cmap='gray')
 
-        axs[0, 1].set_title('Prediction')
-        axs[0, 1].imshow(pred.reshape(xl, xs), cmap='gray')
+    axs[0, 2].set_title('Visual ConfMatrix')
+    patches = [mpatches.Patch(color=[0, 1, 0], label='TP'),
+                mpatches.Patch(color=[1, 0, 0], label='FP'),
+                mpatches.Patch(color=[1, .5, 0], label='FN'),
+                mpatches.Patch(color=[0, 0, 1], label='TN')]
+    axs[0, 2].legend(loc='upper right',
+                        handles=patches,
+                        ncol=2,
+                        bbox_to_anchor=(1, -0.15))  # moves the legend outside
+    axs[0, 2].imshow(visualization)
 
-        axs[0, 2].set_title('Visual ConfMatrix')
-        patches = [mpatches.Patch(color=[0, 1, 0], label='TP'),
-                    mpatches.Patch(color=[1, 0, 0], label='FP'),
-                    mpatches.Patch(color=[1, .5, 0], label='FN'),
-                    mpatches.Patch(color=[0, 0, 1], label='TN')]
-        axs[0, 2].legend(loc='upper right',
-                            handles=patches,
-                            ncol=2,
-                            bbox_to_anchor=(1, -0.15))  # moves the legend outside
-        axs[0, 2].imshow(visualization)
+    axs[1, 0].set_title('Test Data Confusion Matrix')
 
-        axs[1, 0].set_title('Test Data Confusion Matrix')
+    axs[1, 0].matshow(confmatTest, cmap=plt.cm.Blues, alpha=0.5)
+    for i in range(confmatTest.shape[0]):
+        for j in range(confmatTest.shape[1]):
+            axs[1, 0].text(x=j, y=i,
+                            s=round(confmatTest[i, j], 3))
+    axs[1, 0].set_xticklabels([0, 'False', 'True'])
+    axs[1, 0].xaxis.set_ticks_position('bottom')
+    axs[1, 0].set_yticklabels([0, 'False', 'True'])
+    axs[1, 0].set_xlabel('predicted label')
+    axs[1, 0].set_ylabel('reference label')
 
-        axs[1, 0].matshow(confmatTest, cmap=plt.cm.Blues, alpha=0.5)
-        for i in range(confmatTest.shape[0]):
-            for j in range(confmatTest.shape[1]):
-                axs[1, 0].text(x=j, y=i,
-                                s=round(confmatTest[i, j], 3))
-        axs[1, 0].set_xticklabels([0, 'False', 'True'])
-        axs[1, 0].xaxis.set_ticks_position('bottom')
-        axs[1, 0].set_yticklabels([0, 'False', 'True'])
-        axs[1, 0].set_xlabel('predicted label')
-        axs[1, 0].set_ylabel('reference label')
+    axs[1, 1].set_title('Train Data Confusion Matrix')
 
-        axs[1, 1].set_title('Train Data Confusion Matrix')
+    axs[1, 1].matshow(confmatTrain, cmap=plt.cm.Blues, alpha=0.5)
 
-        axs[1, 1].matshow(confmatTrain, cmap=plt.cm.Blues, alpha=0.5)
+    for i in range(confmatTrain.shape[0]):
+        for j in range(confmatTrain.shape[1]):
+            axs[1, 1].text(x=j, y=i,
+                            s=round(confmatTrain[i, j], 3))
+    axs[1, 1].set_xticklabels([0, 'False', 'True'])
+    axs[1, 1].xaxis.set_ticks_position('bottom')
+    axs[1, 1].set_yticklabels([0, 'False', 'True'])
+    axs[1, 1].set_xlabel('predicted label')
+    axs[1, 1].set_ylabel('reference label')
+    axs[1, 1].margins(x=10)
 
-        for i in range(confmatTrain.shape[0]):
-            for j in range(confmatTrain.shape[1]):
-                axs[1, 1].text(x=j, y=i,
-                                s=round(confmatTrain[i, j], 3))
-        axs[1, 1].set_xticklabels([0, 'False', 'True'])
-        axs[1, 1].xaxis.set_ticks_position('bottom')
-        axs[1, 1].set_yticklabels([0, 'False', 'True'])
-        axs[1, 1].set_xlabel('predicted label')
-        axs[1, 1].set_ylabel('reference label')
-        axs[1, 1].margins(x=10)
-
-        plt.tight_layout()
+    plt.tight_layout()
 
     if not os.path.exists('outs'):
         print('creating outs directory in root')
@@ -230,18 +222,60 @@ def build_vis(prediction, y, shape):
     return visualization.reshape(shape)
 
 
-def binary_encode(key, y):
+def encode_one_hot(target, xs, xl, array=True):
+    """encodes the provided dict into a dense numpy array
+    of class values.
 
-    vals = np.sort(np.unique(y))
-    ones = np.ones(y.shape)
-    # create an array populate with the false value
-    t = ones * vals[len(vals) - 1]
-    if key == 'water':
-        arr = np.not_equal(y, t)
+    Caveats: The result of this encoding is dependant and naive, in that
+    any conflicts of pixel labels are not intelligently resolved. For our
+    purposes, at least until now, we don't care. If an instance belongs
+    to multiple classes, that instance will be considered a member of
+    the last class it encounters, ie, the target that comes latest
+    in the dictionary
+    """
+    if array:
+        result = np.zeros((xs*xl, len(target)))
     else:
-        arr = np.logical_and(y, t)
+        result = list()
 
-    return arr
+    result = np.zeros((xl * xs))
+    reslist = []
+    for idx, key in enumerate(target.keys()):
+        ones = np.ones((xl * xs))
+        s,l,b,tmp = read_binary(f"{reference_data_root}/%s" % target[key])
+
+        # same shape as the raw image
+        assert int(s) == int(xs)
+        assert int(l) == int(xl)
+
+        # last index is the targets false value
+        vals = np.sort(np.unique(tmp))
+
+        # create an array populate with the false value
+        t = ones * vals[len(vals) - 1]
+
+        if key == 'water':
+            arr = np.not_equal(tmp,t)
+        else:
+            arr = np.logical_and(tmp,t)
+        # at this stage we have an array that has
+        # ones where the class exists
+        # and zeoes where it doesn't
+        _, c = np.unique(arr, return_counts=True)
+        reslist.append(c)
+        result[arr > 0] = idx+1
+        # # How did the caller ask for the data
+        # if array:
+        #     result[:,idx] = arr
+        # else:
+        #     result.append((key, arr))
+
+    # vals, counts = np.unique(result, return_counts=True)
+    # print(vals)
+    # print(counts)
+    # print(reslist)
+    # print(target.keys())
+    return result
 
 
 if __name__ == "__main__":
