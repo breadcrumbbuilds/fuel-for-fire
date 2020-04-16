@@ -23,7 +23,7 @@ from Utils.Helper import rescale, create_batch_generator
 from Utils.Misc import read_binary
 from keras.wrappers.scikit_learn import KerasClassifier
 from keras import regularizers
-
+from keras import utils
 # TO VIEW MODEL PERFORMANCE IN BROWSER RUN
 #
 # FROM ROOT DIR
@@ -45,12 +45,6 @@ def main():
     batch_size = 512
     epochs = 100
 
-
-
-
-
-    class_weight = {0: 1.,
-                1: 2}
     METRICS = [
       keras.metrics.BinaryAccuracy(name='b_acc'),
       keras.metrics.CategoricalAccuracy(name='cat_acc'),
@@ -67,15 +61,15 @@ def main():
 
     ## Load Data
     target = {
-        # "broadleaf" : "BROADLEAF.bin",
-        # "ccut" : "CCUTBL.bin",
-        # "conifer" : "CONIFER.bin",
-        # "exposed" : "EXPOSED.bin",
-        # "herb" : "HERB.bin",
-        # "mixed" : "MIXED.bin",
-        # "river" : "RIVERS.bin",
+        "broadleaf" : "BROADLEAF.bin",
+        "ccut" : "CCUTBL.bin",
+        "conifer" : "CONIFER.bin",
+        "exposed" : "EXPOSED.bin",
+        "herb" : "HERB.bin",
+        "mixed" : "MIXED.bin",
+        "river" : "Rivers.bin",
         # # "road" : "ROADS.bin",
-        # "shrub" : "SHRUB.bin",
+        "shrub" : "SHRUB.bin",
         # "vri" : "vri_s3_objid2.tif_proj.bin",
         "water": "WATER.bin",
     }
@@ -84,31 +78,66 @@ def main():
     X = StandardScaler().fit_transform(X)  # standardize unit variance and 0 mean
 
     onehot = encode_one_hot(target, xs, xl, array=True)
-    print(np.histogram(onehot, bins=2))
+    print(np.histogram(onehot, bins=len(target) + 1))
 
     # ## Preprocess
     X_train, X_test, y_train, y_test = train_test_split(X, onehot, test_size=test_size)
+    tmp = np.zeros((X_train.shape[0], 13))
+    tmp[:,:X_train.shape[1]] = X_train
+    tmp[:,X_train.shape[1]] = y_train
 
+    # Let's oversample each class so we don't have class imbalance
+    vals, counts = np.unique(tmp[:,X_train.shape[1]], return_counts=True)
+    maxval = np.amax(counts) + 50000
+
+    ### WARNING, your validation data has leakage
+    for idx in range(len(target) + 1):
+        if(idx == 0):
+            # ignore these, they aren't labeled values
+            continue
+
+        idx_class_vals_outside_while = tmp[tmp[:,X_train.shape[1]] == idx] # return the true values of a class
+
+        while(tmp[tmp[:,X_train.shape[1]] == idx].shape[0] < maxval): # oversample until we have n samples
+
+            idx_class_vals_inside_while = tmp[tmp[:,X_train.shape[1]] == idx] # this grows exponentially
+            # if we are halfway there, let's ease up and do things slower
+            # so our classes have similar amounts of samples
+            if idx_class_vals_inside_while.shape[0] > maxval//2:
+                tmp = np.concatenate((tmp, idx_class_vals_outside_while), axis=0)
+            else:
+                tmp = np.concatenate((tmp, idx_class_vals_inside_while), axis=0)
+
+    vals, counts = np.unique(tmp[:,X_train.shape[1]], return_counts=True)
+    print(vals)
+    print(counts)
+
+    X_train = tmp[:,:X_train.shape[1]]
+    y_train = tmp[:,X_train.shape[1]]
     # let's duplicate the positive X_train vals
     # for idx, pixel in enumerate(zip(X_train, y_train)):
 
+    y_train = keras.utils.to_categorical(y_train, num_classes=len(target) + 1)
+    print(y_train)
     n_features = X_train.shape[1]
-    n_classes = len(target)
+    n_classes = len(target) + 1
     rand_seed = 123 # reproducability
 
     np.random.seed(rand_seed)
 
     tf.random.set_seed(rand_seed)
 
-    model = create_model(X_train.shape[1], len(target))
+    model = create_model(X_train.shape[1],len(target) + 1)
 
     optimizer = keras.optimizers.Adam(
         lr=learning_rate, beta_1=0.9, beta_2=0.99
     )
 
     model.compile(optimizer=optimizer,
-                  loss='binary_crossentropy',
+                  loss='sparse_categorical_crossentropy',
                 metrics=METRICS)
+
+
 
     # to visualize training in the browser'
     root_logdir = os.path.join(os.curdir, "logs")
@@ -258,13 +287,24 @@ def one_hot_sanity_check(target, xs, xl):
         plt.show()
 
 
-def encode_one_hot(target, xs, xl, array=False):
+def encode_one_hot(target, xs, xl, array=True):
+    """encodes the provided dict into a dense numpy array
+    of class values.
 
+    Caveats: The result of this encoding is dependant and naive, in that
+    any conflicts of pixel labels are not intelligently resolved. For our
+    purposes, at least until now, we don't care. If an instance belongs
+    to multiple classes, that instance will be considered a member of
+    the last class it encounters, ie, the target that comes latest
+    in the dictionary
+    """
     if array:
         result = np.zeros((xs*xl, len(target)))
     else:
         result = list()
 
+    result = np.zeros((xl * xs))
+    reslist = []
     for idx, key in enumerate(target.keys()):
         ones = np.ones((xl * xs))
         s,l,b,tmp = read_binary(f"{reference_data_root}/%s" % target[key])
@@ -283,15 +323,14 @@ def encode_one_hot(target, xs, xl, array=False):
             arr = np.not_equal(tmp,t)
         else:
             arr = np.logical_and(tmp,t)
-
-        # How did the caller ask for the data
-        if array:
-            result[:,idx] = arr
-        else:
-            result.append((key, arr))
+        # at this stage we have an array that has
+        # ones where the class exists
+        # and zeoes where it doesn't
+        _, c = np.unique(arr, return_counts=True)
+        reslist.append(c)
+        result[arr > 0] = idx+1
 
     return result
-
 
 def build_vis(prediction, y, shape):
 
@@ -326,7 +365,7 @@ def create_model(input_dim, output_dim):
     tf.keras.layers.Dense(input_dim),
     tf.keras.layers.Dense(32, activation='relu'),#, kernel_regularizer=regularizers.l2(0.001)),
     #tf.keras.layers.Dropout(0.2),
-    tf.keras.layers.Dense(output_dim, activation='sigmoid')
+    tf.keras.layers.Dense(output_dim, activation='softmax')
   ])
 
 

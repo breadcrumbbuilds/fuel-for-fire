@@ -83,7 +83,7 @@ def main():
 
     # Let's oversample each class so we don't have class imbalance
     vals, counts = np.unique(tmp[:,X_train.shape[1]], return_counts=True)
-    maxval = np.amax(counts)
+    maxval = np.amax(counts) + 50000
     for idx in range(len(target) + 1):
         if(idx == 0):
             # ignore these, they aren't labeled values
