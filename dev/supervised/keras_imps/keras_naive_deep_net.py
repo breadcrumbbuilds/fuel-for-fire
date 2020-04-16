@@ -42,15 +42,15 @@ def main():
     ## Config
     test_size = .3
     learning_rate = 0.00333
-    batch_size = 256
-    epochs = 30
+    batch_size = 512
+    epochs = 100
 
 
 
 
 
     class_weight = {0: 1.,
-                1: 10}
+                1: 2}
     METRICS = [
       keras.metrics.BinaryAccuracy(name='b_acc'),
       keras.metrics.CategoricalAccuracy(name='cat_acc'),
@@ -151,17 +151,12 @@ def main():
     train_pred = model.predict(X_train)
     test_pred = model.predict(X_test)
 
-    pred = keras.metrics.binary_accuracy(onehot, X, threshold=0.2)
-    print("Test Accuracy - 0.55: ", np.unique(keras.metrics.binary_accuracy(y_test, test_pred, threshold=0.58), return_counts=True))
-    print("Test Accuracy - 0.3: ", np.unique(keras.metrics.binary_accuracy(y_test, test_pred, threshold=0.3), return_counts=True))
-    print("Test Accuracy - 0.2: ", np.unique(keras.metrics.binary_accuracy(y_test, test_pred, threshold=0.2), return_counts=True))
-
-
-    print("Train Accuracy - 0.4: ", np.unique(keras.metrics.binary_accuracy(y_train, train_pred, threshold=0.4), return_counts=True))
-    print("Train Accuracy - 0.3: ", np.unique(keras.metrics.binary_accuracy(y_train, train_pred, threshold=0.3), return_counts=True))
-    print("Train Accuracy - 0.2: ", np.unique(keras.metrics.binary_accuracy(y_train, train_pred, threshold=0.2), return_counts=True))
-
-
+    pred = keras.metrics.binary_accuracy(onehot, X, threshold=0.5)
+    pred = pred.numpy()
+    val, counts = np.unique(pred, return_counts=True)
+    for idx, ret in enumerate(zip(val, counts)):
+        print(ret[0], ret[1])
+    print()
     # confmatTest = confusion_matrix(
     #     y_true=y_test, y_pred=model.predict(X_test))
     # confmatTrain = confusion_matrix(
@@ -191,7 +186,7 @@ def main():
     axs[0, 0].imshow(onehot.reshape(xl, xs), cmap='gray')
 
     axs[0, 1].set_title('Prediction')
-    axs[0, 1].imshow(pred.numpy().reshape(xl, xs), cmap='gray')
+    axs[0, 1].imshow(pred.reshape(xl, xs), cmap='gray')
 
     axs[0, 2].set_title('Visual ConfMatrix')
     patches = [mpatches.Patch(color=[0, 1, 0], label='TP'),
@@ -329,8 +324,8 @@ def build_vis(prediction, y, shape):
 def create_model(input_dim, output_dim):
   return tf.keras.models.Sequential([
     tf.keras.layers.Dense(input_dim),
-    tf.keras.layers.Dense(64, activation='relu', kernel_regularizer=regularizers.l2(0.001)),
-    tf.keras.layers.Dropout(0.4),
+    tf.keras.layers.Dense(32, activation='relu'),#, kernel_regularizer=regularizers.l2(0.001)),
+    #tf.keras.layers.Dropout(0.2),
     tf.keras.layers.Dense(output_dim, activation='sigmoid')
   ])
 
