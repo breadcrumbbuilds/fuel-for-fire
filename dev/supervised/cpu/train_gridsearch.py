@@ -28,22 +28,20 @@ raw_data_root = f"{root_path}data_img/"
 
 
 def main():
-    randforest = False
 
     param_grid = [{
-        'n_estimators': [100, 500, 1000],
-        'max_features': [0.1, 0.3],
-        'max_depth': [1, 3, 9],
+        'n_estimators': [5000, 10000],
+        'max_features': [0.1, 0.3, 0.5],
+        'max_depth': [1, 3, 9, 16],
         'verbose':[1],
-        'subsample': [0.5, 1],
-        'learning_rate': [0.1, 0.01]
-
+        'n_jobs': [-1],
+        'class_weight': []
     }]
 
     classifiers = (
-        GradientBoostingClassifier(),
+        RandomForestClassifier(),
     )
-    clf_names =("GB")
+    clf_names =("RF")
     test_size = 0.3
 
     # Load Data
@@ -65,6 +63,7 @@ def main():
 
     X = X.reshape(xl * xs, xb)
     X = StandardScaler().fit_transform(X)  # standardize unit variance and 0 mean
+
 
     for forest, name in zip(classifiers,clf_names):
 
@@ -143,8 +142,8 @@ def main():
                         "Predict: %ss" % predict_time,
                         "Estimators: %s" % grid_search.best_estimator_.get_params()['n_estimators'],
                         "Max Features: %s" % grid_search.best_estimator_.get_params()['max_features'],
-                        "Max Depth: %s" % grid_search.best_estimator_.get_params()['max_depth'],
-                        "SubSampling: %s" % grid_search.best_estimator_.get_params()['subsample']),
+                        "Max Depth: %s" % grid_search.best_estimator_.get_params()['max_depth']),
+                        #"SubSampling: %s" % grid_search.best_estimator_.get_params()['subsample']),
 
                        loc='lower right',
                        ncol=3)
@@ -252,18 +251,39 @@ def build_vis(prediction, y, shape):
     return visualization.reshape(shape)
 
 
-def binary_encode(key, y):
+def encode_one_hot(target, xs, xl, array=False):
 
-    vals = np.sort(np.unique(y))
-    ones = np.ones(y.shape)
-    # create an array populate with the false value
-    t = ones * vals[len(vals) - 1]
-    if key == 'water':
-        arr = np.not_equal(y, t)
+    if array:
+        result = np.zeros((xs*xl, len(target)))
     else:
-        arr = np.logical_and(y, t)
+        result = list()
 
-    return arr
+    for idx, key in enumerate(target.keys()):
+        ones = np.ones((xl * xs))
+        s,l,b,tmp = read_binary(f"{reference_data_root}/%s" % target[key])
+
+        # same shape as the raw image
+        assert int(s) == int(xs)
+        assert int(l) == int(xl)
+
+        # last index is the targets false value
+        vals = np.sort(np.unique(tmp))
+
+        # create an array populate with the false value
+        t = ones * vals[len(vals) - 1]
+
+        if key == 'water':
+            arr = np.not_equal(tmp,t)
+        else:
+            arr = np.logical_and(tmp,t)
+
+        # How did the caller ask for the data
+        if array:
+            result[:,idx] = arr
+        else:
+            result.append((key, arr))
+
+    return result
 
 
 if __name__ == "__main__":
