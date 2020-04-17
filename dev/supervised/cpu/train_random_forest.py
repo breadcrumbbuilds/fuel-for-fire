@@ -26,8 +26,8 @@ raw_data_root = f"{root_path}data_img/"
 def main():
 
     params = {
-        'n_estimators': 100000,
-        'max_features': 0.1,
+        'n_estimators': 500000,
+        'max_features': 0.3,
         'max_depth': 3,
         'verbose': 1,
         'n_jobs': -1,
@@ -77,7 +77,7 @@ def main():
 
     # Deal with imabalanced classes by oversampleing the training set samples
     # let's store the vals and labels together
-    tmp = np.zeros((X_train.shape[0], 13))
+    tmp = np.zeros((X_train.shape[0], X_train.shape[1] + 1))
     tmp[:,:X_train.shape[1]] = X_train
     tmp[:,X_train.shape[1]] = y_train
 
@@ -91,7 +91,7 @@ def main():
 
         idx_class_vals_outside_while = tmp[tmp[:,X_train.shape[1]] == idx] # return the true values of a class
 
-        while(tmp[tmp[:,12] == idx].shape[0] < maxval): # oversample until we have n samples
+        while(tmp[tmp[:,X_train.shape[1]] == idx].shape[0] < maxval): # oversample until we have n samples
 
             idx_class_vals_inside_while = tmp[tmp[:,X_train.shape[1]] == idx] # this grows exponentially
             # if we are halfway there, let's ease up and do things slower
@@ -105,18 +105,18 @@ def main():
     print(vals)
     print(counts)
 
-    X_train = tmp[:,:12]
-    y_train = tmp[:,12]
+    X_train = tmp[:,:X_train.shape[1]]
+    y_train = tmp[:,X_train.shape[1]]
 
     start_fit = time.time()
     clf.fit(X_train, y_train)
     end_fit = time.time()
 
     # Save the classifier in the models dir
-    if not os.path.exists('models'):
-        os.mkdir('models')
-    if not os.path.exists('models/grid_search'):
-        os.mkdir('models/grid_search')
+    if not os.path.exists('outs'):
+        os.mkdir('outs')
+    if not os.path.exists('models/RandomForest'):
+        os.mkdir('outs/RandomForest')
 
     fn = f'outs/RandomForest/RF_{clf.get_params()["n_estimators"]}_{clf.get_params()["max_features"]}_{clf.get_params()["max_depth"]}.pkl'
     # saves the model, compress stores the result in one model
@@ -307,17 +307,7 @@ def encode_one_hot(target, xs, xl, array=True):
         _, c = np.unique(arr, return_counts=True)
         reslist.append(c)
         result[arr > 0] = idx+1
-        # # How did the caller ask for the data
-        # if array:
-        #     result[:,idx] = arr
-        # else:
-        #     result.append((key, arr))
 
-    # vals, counts = np.unique(result, return_counts=True)
-    # print(vals)
-    # print(counts)
-    # print(reslist)
-    # print(target.keys())
     return result
 
 
