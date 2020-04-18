@@ -32,7 +32,7 @@ def main():
     param_grid = [{
         'n_estimators': [50000],
         'max_features': [0.1, 0.3, 0.5],
-        'max_depth': [1, 3, 6, -1],
+        'max_depth': [1, 3, 6, 12],
         'verbose':[1],
         'n_jobs': [-1],
     }]
