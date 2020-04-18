@@ -26,11 +26,11 @@ raw_data_root = f"{root_path}data_img/"
 def main():
 
     params = {
-        'n_estimators': 1000,
-        'max_features': 0.1,
-        'max_depth': 5,
+        'n_estimators': 100,
+        'max_features': 0.3,
+        'max_depth': 115,
         'verbose': 1,
-        # 'subsample': 0.5,
+        'subsample': 0.5,
     }
     test_size = 0.3
 
@@ -68,6 +68,41 @@ def main():
     print(f"Onehot shape: {y.shape}")
     X_train, X_test, y_train, y_test = train_test_split(
         X, y, test_size=test_size, shuffle=True)
+     # Deal with imabalanced classes by oversampleing the training set samples
+    # let's store the vals and labels together
+
+    print(X_train.shape)
+    print(X_train.shape[0])
+    tmp = np.zeros((X_train.shape[0], X_train.shape[1] + 1, ))
+    tmp[:,:X_train.shape[1]] = X_train
+    tmp[:,X_train.shape[1]] = y_train
+
+    # Let's oversample each class so we don't have class imbalance
+    vals, counts = np.unique(tmp[:,X_train.shape[1]], return_counts=True)
+    maxval = np.amax(counts) + 50000
+    for idx in range(len(target) + 1):
+        if(idx == 0):
+            # ignore these, they aren't labeled values
+            continue
+
+        idx_class_vals_outside_while = tmp[tmp[:,X_train.shape[1]] == idx] # return the true values of a class
+
+        while(tmp[tmp[:,X_train.shape[1]] == idx].shape[0] < maxval): # oversample until we have n samples
+
+            idx_class_vals_inside_while = tmp[tmp[:,X_train.shape[1]] == idx] # this grows exponentially
+            # if we are halfway there, let's ease up and do things slower
+            # so our classes have similar amounts of samples
+            if idx_class_vals_inside_while.shape[0] > maxval//2:
+                tmp = np.concatenate((tmp, idx_class_vals_outside_while), axis=0)
+            else:
+                tmp = np.concatenate((tmp, idx_class_vals_inside_while), axis=0)
+
+    vals, counts = np.unique(tmp[:,X_train.shape[1]], return_counts=True)
+    print(vals)
+    print(counts)
+
+    X_train = tmp[:,:X_train.shape[1]]
+    y_train = tmp[:,X_train.shape[1]]
 
     start_fit = time.time()
     clf.fit(X_train, y_train)
@@ -87,6 +122,10 @@ def main():
     pred = clf.predict(X)
     end_predict = time.time()
 
+    print(pred)
+    print(pred.shape)
+    print(np.histogram(pred))
+
     fit_time = round(end_fit - start_fit, 2)
     predict_time = round(end_predict - start_predict, 2)
 
@@ -98,7 +137,7 @@ def main():
     train_score = clf.score(X_train, y_train)
     test_score = clf.score(X_test, y_test)
 
-    visualization = build_vis(pred, y, (int(yl), int(ys), 3))
+    visualization = build_vis(pred, y, (int(xl), int(xs), 3))
 
     fig, axs = plt.subplots(2, 3, figsize=(15, 8), sharey=False)
 
@@ -218,6 +257,8 @@ def build_vis(prediction, y, shape):
 
         else:
             raise Exception("There was a problem comparing the pixel", idx)
+
+    print("vis shape", visualization.reshape(shape).shape)
 
     return visualization.reshape(shape)
 
