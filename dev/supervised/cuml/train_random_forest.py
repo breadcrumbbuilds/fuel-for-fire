@@ -32,58 +32,73 @@ def main():
     cu_rf_params = {
         'n_estimators': 10000,
         'max_depth': 3,
-        'max_features': 0.5,
-        'n_bins': 3,
-        'split_algo': 1,
-        'split_criterion': 0,
-        'min_rows_per_node': 2,
-        'min_impurity_decrease': 0.0,
-        'bootstrap': True,
-        'bootstrap_features': True,
-        'verbose': True,
-        'rows_sample': 1.0,
-        'max_leaves': -1,
-        'quantile_per_tree': False
+        'max_features': 0.1,
         }
 
     # used to onehot encode all of the classes if need be
     target = {
-        # "broadleaf" : "BROADLEAF.bin",
-        # "ccut" : "CCUTBL.bin",
-        # "conifer" : "CONIFER.bin",
-        # "exposed" : "EXPOSED.bin",
-        # "herb" : "HERB.bin",
-        # "mixed" : "MIXED.bin",
-        # "river" : "RIVERS.bin",
-        # # "road" : "ROADS.bin",
-        # "shrub" : "SHRUB.bin",
+        "conifer" : "CONIFER.bin",
+        "ccut" : "CCUTBL.bin",
+        "water": "WATER.bin",
+        "broadleaf" : "BROADLEAF.bin",
+        "shrub" : "SHRUB.bin",
+        "mixed" : "MIXED.bin",
+        "herb" : "HERB.bin",
+        "exposed" : "EXPOSED.bin",
+        "river" : "Rivers.bin",
+        # "road" : "ROADS.bin",
         # "vri" : "vri_s3_objid2.tif_proj.bin",
-        "water" : "WATER.bin",
     }
 
-    # Hardcoded strings to access files
-    # TODO: abstract the read
     xs, xl, xb, X = read_binary(f'{raw_data_root}S2A.bin', to_string=False)
 
     X = X.reshape(xl * xs, xb)
-    X = StandardScaler().fit_transform(X)
-    # There's harded coded paths in this function as well
-    # This portion of the code is a prime candidate for
-    # scrutiny
-    onehot = encode_one_hot(target, xs, xl, array=True)
-    onehot = onehot.astype(np.int32) # cuML wants a 32 bit int
+    X = StandardScaler().fit_transform(X)  # standardize unit variance and 0 mean
 
-    y = onehot[:,0] # we commented out all the other samples, 0th entry is water here
 
-    # sanity check for the encoding
-    # expect to see false samples at 0. and
-    # true samples at 1.
-    print('\nhistogram of onehot encoded array')
-    print(np.histogram(y,bins=2))
 
-    X_train, X_test, y_train, y_test = \
-    train_test_split(X, y, test_size=test_size) # scikit learn helper split function
+    # Load the labels for the binary classifier we aim to train
+    y = encode_one_hot(target, xs, xl, array=True)
 
+    y = y.reshape(int(xl)*int(xs))
+    y = y.astype(np.int32)
+
+    print(f"Onehot shape: {y.shape}")
+    X_train, X_test, y_train, y_test = train_test_split(
+        X, y, test_size=test_size, shuffle=True)
+     # Deal with imabalanced classes by oversampleing the training set samples
+    # let's store the vals and labels together
+    tmp = np.zeros((X_train.shape[0], X_train.shape[1] + 1))
+    tmp[:,:X_train.shape[1]] = X_train
+    tmp[:,X_train.shape[1]] = y_train
+
+    # Let's oversample each class so we don't have class imbalance
+    vals, counts = np.unique(tmp[:,X_train.shape[1]], return_counts=True)
+    maxval = np.amax(counts) + 50000
+    for idx in range(len(target) + 1):
+        if(idx == 0):
+            # ignore these, they aren't labeled values
+            continue
+
+        idx_class_vals_outside_while = tmp[tmp[:,X_train.shape[1]] == idx] # return the true values of a class
+
+        while(tmp[tmp[:,X_train.shape[1]] == idx].shape[0] < maxval): # oversample until we have n samples
+
+            idx_class_vals_inside_while = tmp[tmp[:,X_train.shape[1]] == idx] # this grows exponentially
+            # if we are halfway there, let's ease up and do things slower
+            # so our classes have similar amounts of samples
+            if idx_class_vals_inside_while.shape[0] > maxval//2:
+                tmp = np.concatenate((tmp, idx_class_vals_outside_while), axis=0)
+            else:
+                tmp = np.concatenate((tmp, idx_class_vals_inside_while), axis=0)
+
+    vals, counts = np.unique(tmp[:,X_train.shape[1]], return_counts=True)
+    print(vals)
+    print(counts)
+
+    X_train = tmp[:,:X_train.shape[1]]
+    y_train = tmp[:,X_train.shape[1]]
+    y_train = y_train.astype(np.int32)
     forest = cuRF(**cu_rf_params)
 
     start_fit = time.time()
@@ -91,7 +106,7 @@ def main():
     end_fit = time.time()
 
     start_predict = time.time()
-    pred = forest.predict(X)
+    pred = forest.predict(X, predict_model='CPU')
     end_predict = time.time()
 
     fit_time = round(end_fit - start_fit,2)
@@ -195,19 +210,19 @@ def build_vis(prediction, y, shape):
 
             if int(pixel[0]) and pixel[1]:
                 # True Positive
-                visualization[idx,] = [0,1,0]
+                visualization[idx,] = [0,idx,0]
 
             elif int(pixel[0]) and not pixel[1]:
                 # False Positive
-                visualization[idx,] = [1,0,0]
+                visualization[idx,] = [idx,0,0]
 
             elif not int(pixel[0]) and pixel[1]:
                 # False Negative
-                visualization[idx,] = [1,.5,0]
+                visualization[idx,] = [idx,idx//2,0]
 
             elif not int(pixel[0]) and not pixel[1]:
                 # True Negative
-                visualization[idx, ] = [0,0,1]
+                visualization[idx, ] = [0,0,idx]
                 # visualization[idx, ] = rgb
             else:
                 raise Exception("There was a problem predicting the pixel", idx)
@@ -224,38 +239,59 @@ def build_vis(prediction, y, shape):
 """Automated determination of a binary interpretation of the
 pixels within the reference images
 """
-def encode_one_hot(target, xs, xl, array=False):
+def encode_one_hot(target, xs, xl, array=True):
+    """encodes the provided dict into a dense numpy array
+    of class values.
 
+    Caveats: The result of this encoding is dependant and naive, in that
+    any conflicts of pixel labels are not intelligently resolved. For our
+    purposes, at least until now, we don't care. If an instance belongs
+    to multiple classes, that instance will be considered a member of
+    the last class it encounters, ie, the target that comes latest
+    in the dictionary
+    """
     if array:
         result = np.zeros((xs*xl, len(target)))
     else:
         result = list()
 
+    result = np.zeros((xl * xs))
+    reslist = []
     for idx, key in enumerate(target.keys()):
-
         ones = np.ones((xl * xs))
-        s,l,b,raw = read_binary("data/zoom/data_bcgw/%s" % target[key], to_string=False)
+        s,l,b,tmp = read_binary(f"{reference_data_root}/%s" % target[key])
 
         # same shape as the raw image
-        assert s == xs
-        assert l == xl
+        assert int(s) == int(xs)
+        assert int(l) == int(xl)
 
-        # assume the last index is the reference's false value
-        sorted_unique_raw_vals = np.sort(np.unique(raw))
-        # create an array populated with the false value
-        false_val_arr = ones * sorted_unique_raw_vals[len(sorted_unique_raw_vals) - 1]
-        # Can't remember exactly why water is a special case here
+        # last index is the targets false value
+        vals = np.sort(np.unique(tmp))
+
+        # create an array populate with the false value
+        t = ones * vals[len(vals) - 1]
+
         if key == 'water':
-            arr = np.not_equal(false_val_arr, raw)
+            arr = np.not_equal(tmp,t)
         else:
-            arr = np.logical_and(false_val_arr, raw)
+            arr = np.logical_and(tmp,t)
+        # at this stage we have an array that has
+        # ones where the class exists
+        # and zeoes where it doesn't
+        _, c = np.unique(arr, return_counts=True)
+        reslist.append(c)
+        result[arr > 0] = idx+1
+        # # How did the caller ask for the data
+        # if array:
+        #     result[:,idx] = arr
+        # else:
+        #     result.append((key, arr))
 
-        # How did the caller ask for the data
-        if array:
-            result[:,idx] = arr
-        else:
-            result.append((key, arr))
-
+    # vals, counts = np.unique(result, return_counts=True)
+    # print(vals)
+    # print(counts)
+    # print(reslist)
+    # print(target.keys())
     return result
 
 """Use this if you want to show the raw image in the output
