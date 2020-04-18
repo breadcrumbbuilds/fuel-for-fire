@@ -41,8 +41,8 @@ def main():
 
     ## Config
     test_size = .3
-    learning_rate = 0.00333
-    batch_size = 512
+    learning_rate = 0.001
+    batch_size = 4096
     epochs = 100
 
     METRICS = [
@@ -90,7 +90,7 @@ def main():
     vals, counts = np.unique(tmp[:,X_train.shape[1]], return_counts=True)
     maxval = np.amax(counts) + 50000
 
-    ### WARNING, your validation data has leakage
+    ### WARNING, your validation data has leakage,
     for idx in range(len(target) + 1):
         if(idx == 0):
             # ignore these, they aren't labeled values
@@ -118,7 +118,7 @@ def main():
     # for idx, pixel in enumerate(zip(X_train, y_train)):
 
     y_train = keras.utils.to_categorical(y_train, num_classes=len(target) + 1)
-    print(y_train)
+    print(y_train.shape)
     n_features = X_train.shape[1]
     n_classes = len(target) + 1
     rand_seed = 123 # reproducability
@@ -126,15 +126,17 @@ def main():
     np.random.seed(rand_seed)
 
     tf.random.set_seed(rand_seed)
+    print(X_train.shape)
+    print(y_train.shape)
 
-    model = create_model(X_train.shape[1],len(target) + 1)
+    model = create_model(X_train.shape[1],y_train.shape[1])
 
     optimizer = keras.optimizers.Adam(
         lr=learning_rate, beta_1=0.9, beta_2=0.99
     )
 
     model.compile(optimizer=optimizer,
-                  loss='sparse_categorical_crossentropy',
+                  loss='categorical_crossentropy',
                 metrics=METRICS)
 
 
@@ -145,7 +147,7 @@ def main():
     tensorboard_cb = keras.callbacks.TensorBoard(run_logdir)
     filepath= os.path.join(os.curdir, "outs/models/NaiveDeepNet/weights-improvement-{epoch:02d}.hdf5")
     modelsave_cb = keras.callbacks.ModelCheckpoint(filepath, monitor='cat_acc', verbose=0, save_best_only=True, save_weights_only=False, mode='auto', save_freq=1)
-    callbacks = [tensorboard_cb, modelsave_cb]
+    callbacks = [tensorboard_cb]
 
     start_fit = time.time()
 
@@ -363,8 +365,18 @@ def build_vis(prediction, y, shape):
 def create_model(input_dim, output_dim):
   return tf.keras.models.Sequential([
     tf.keras.layers.Dense(input_dim),
-    tf.keras.layers.Dense(32, activation='relu'),#, kernel_regularizer=regularizers.l2(0.001)),
-    #tf.keras.layers.Dropout(0.2),
+    tf.keras.layers.Dense(512, activation='relu'),#, kernel_regularizer=regularizers.l2(0.001)),
+    tf.keras.layers.Dropout(0.4),
+    tf.keras.layers.Dense(1024, activation='relu'),#, kernel_regularizer=regularizers.l2(0.001)),
+    # tf.keras.layers.Dropout(0.4),
+    tf.keras.layers.Dense(2048, activation='relu'),#, kernel_regularizer=regularizers.l2(0.001)),
+    # tf.keras.layers.Dropout(0.4),
+    tf.keras.layers.Dense(4096, activation='relu'),#, kernel_regularizer=regularizers.l2(0.001)),
+    # tf.keras.layers.Dropout(0.4),
+    tf.keras.layers.Dense(8192, activation='relu'),#, kernel_regularizer=regularizers.l2(0.001)),
+    # tf.keras.layers.Dropout(0.4),
+    tf.keras.layers.Dense(16384, activation='relu'),#, kernel_regularizer=regularizers.l2(0.001)),
+    # tf.keras.layers.Dropout(0.4),
     tf.keras.layers.Dense(output_dim, activation='softmax')
   ])
 
