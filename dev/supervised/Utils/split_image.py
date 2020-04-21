@@ -10,7 +10,7 @@ from Utils.Helper import rescale
 def main():
 
     # TODO: Split both the data and the target
-    cols, rows, bands, X = read_binary('data/data_img/output4_selectS2.bin', to_string=False)
+    cols, rows, bands, X = read_binary('data/full/data_img/S2A.bin', to_string=False)
 
     # We are creating spatially consistent sub images, so need the original to be in spatial format
 
