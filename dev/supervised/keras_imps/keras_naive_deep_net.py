@@ -29,13 +29,13 @@ import cv2
 #
 # FROM ROOT DIR
 # globals
-root_path = "data/full/"
+root_path = "data/zoom/"
 reference_data_root = f"{root_path}data_bcgw/"
 raw_data_root = f"{root_path}data_img/"
 
 def main():
 
-    test = True
+    test = False
 
     print("Numpy Version: %s" % np.__version__)
     print("Keras Version: %s" % keras.__version__)
@@ -50,7 +50,7 @@ def main():
         epochs = 1
         batch_size = 8192
     else:
-        epochs = 100
+        epochs = 1000
         batch_size = 1024
 
     learning_rate = 0.00333
@@ -247,7 +247,7 @@ def main():
         X = StandardScaler().fit_transform(X)  # standardize unit variance and 0 mean
         onehot = encode_one_hot(target, cols, rows, array=True)
         checkit(onehot)
-        cv2.imshow("oh", onehot)
+        cv2.imshow("oh", onehot.reshape((cols, rows)))
 
         """-----------------------------------------------------------
         * Cross Val
@@ -262,12 +262,12 @@ def main():
 
         X_subbed = create_sub_images(tmp, cols, rows, bands+1)
 
-        for i in range(n_folds):
+        # for i in range(n_folds):
 
-            cv2.imshow("Reference", X_subbed[i,:,:,3 ])
-            cv2.waitKey(0)
-            cv2.destroyAllWindows()
-            checkit(X_subbed[i,:,:,:])
+        #     cv2.imshow("Reference", X_subbed[i,:,:,3 ])
+        #     cv2.waitKey(0)
+        #     cv2.destroyAllWindows()
+        #     checkit(X_subbed[i,:,:,:])
 
     # One hot encoding
 
