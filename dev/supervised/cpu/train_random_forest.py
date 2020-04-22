@@ -1,5 +1,4 @@
 from sklearn.ensemble import RandomForestClassifier
-
 from sklearn.linear_model import SGDClassifier
 from sklearn.preprocessing import StandardScaler
 from sklearn.model_selection import train_test_split
@@ -15,8 +14,8 @@ import sys
 import os
 sys.path.append(
     os.path.abspath(os.path.join(os.path.dirname(__file__), os.path.pardir)))
-from Utils.Misc import *
 from Utils.Helper import rescale
+from Utils.Misc import *
 # globals
 root_path = "data/zoom/"
 reference_data_root = f"{root_path}data_bcgw/"
@@ -26,9 +25,9 @@ raw_data_root = f"{root_path}data_img/"
 def main():
 
     params = {
-        'n_estimators': 500000,
+        'n_estimators': 5000,
         'max_features': 0.3,
-        'max_depth': 3,
+        'max_depth': 12,
         'verbose': 1,
         'n_jobs': -1,
         # 'class_weight': 'balanced_subsample'
@@ -39,15 +38,15 @@ def main():
     # data ordered by the most frequent amount of instances
 
     target = {
-        "conifer" : "CONIFER.bin",
-        "ccut" : "CCUTBL.bin",
+        "conifer": "CONIFER.bin",
+        "ccut": "CCUTBL.bin",
         "water": "WATER.bin",
-        "broadleaf" : "BROADLEAF.bin",
-        "shrub" : "SHRUB.bin",
-        "mixed" : "MIXED.bin",
-        "herb" : "HERB.bin",
-        "exposed" : "EXPOSED.bin",
-        "river" : "Rivers.bin",
+        "broadleaf": "BROADLEAF.bin",
+        "shrub": "SHRUB.bin",
+        "mixed": "MIXED.bin",
+        "herb": "HERB.bin",
+        "exposed": "EXPOSED.bin",
+        "river": "Rivers.bin",
         # "road" : "ROADS.bin",
         # "vri" : "vri_s3_objid2.tif_proj.bin",
     }
@@ -57,7 +56,6 @@ def main():
     X = X.reshape(xl * xs, xb)
     X = StandardScaler().fit_transform(X)  # standardize unit variance and 0 mean
 
-
     clf = RandomForestClassifier(**params,)
 
     # Load the labels for the binary classifier we aim to train
@@ -66,7 +64,6 @@ def main():
     print(f"y labels: {np.bincount(y.astype(int))}")
     y = y.reshape(int(xl)*int(xs))
 
-
     print(f"Onehot shape: {y.shape}")
     X_train, X_test, y_train, y_test = train_test_split(
         X, y, test_size=test_size, shuffle=True)
@@ -74,39 +71,43 @@ def main():
     print(X_train.shape)
     print(y_train.shape)
 
-
     # Deal with imabalanced classes by oversampleing the training set samples
     # let's store the vals and labels together
     tmp = np.zeros((X_train.shape[0], X_train.shape[1] + 1))
-    tmp[:,:X_train.shape[1]] = X_train
-    tmp[:,X_train.shape[1]] = y_train
+    tmp[:, :X_train.shape[1]] = X_train
+    tmp[:, X_train.shape[1]] = y_train
 
     # Let's oversample each class so we don't have class imbalance
-    vals, counts = np.unique(tmp[:,X_train.shape[1]], return_counts=True)
+    vals, counts = np.unique(tmp[:, X_train.shape[1]], return_counts=True)
     maxval = np.amax(counts) + 50000
     for idx in range(len(target) + 1):
         if(idx == 0):
             # ignore these, they aren't labeled values
             continue
 
-        idx_class_vals_outside_while = tmp[tmp[:,X_train.shape[1]] == idx] # return the true values of a class
+        # return the true values of a class
+        idx_class_vals_outside_while = tmp[tmp[:, X_train.shape[1]] == idx]
 
-        while(tmp[tmp[:,X_train.shape[1]] == idx].shape[0] < maxval): # oversample until we have n samples
+        # oversample until we have n samples
+        while(tmp[tmp[:, X_train.shape[1]] == idx].shape[0] < maxval):
 
-            idx_class_vals_inside_while = tmp[tmp[:,X_train.shape[1]] == idx] # this grows exponentially
+            # this grows exponentially
+            idx_class_vals_inside_while = tmp[tmp[:, X_train.shape[1]] == idx]
             # if we are halfway there, let's ease up and do things slower
             # so our classes have similar amounts of samples
             if idx_class_vals_inside_while.shape[0] > maxval//2:
-                tmp = np.concatenate((tmp, idx_class_vals_outside_while), axis=0)
+                tmp = np.concatenate(
+                    (tmp, idx_class_vals_outside_while), axis=0)
             else:
-                tmp = np.concatenate((tmp, idx_class_vals_inside_while), axis=0)
+                tmp = np.concatenate(
+                    (tmp, idx_class_vals_inside_while), axis=0)
 
-    vals, counts = np.unique(tmp[:,X_train.shape[1]], return_counts=True)
+    vals, counts = np.unique(tmp[:, X_train.shape[1]], return_counts=True)
     print(vals)
     print(counts)
 
-    X_train = tmp[:,:X_train.shape[1]]
-    y_train = tmp[:,X_train.shape[1]]
+    X_train = tmp[:, :X_train.shape[1]]
+    y_train = tmp[:, X_train.shape[1]]
 
     start_fit = time.time()
     clf.fit(X_train, y_train)
@@ -120,7 +121,7 @@ def main():
 
     fn = f'outs/RandomForest/RF_{clf.get_params()["n_estimators"]}_{clf.get_params()["max_features"]}_{clf.get_params()["max_depth"]}.pkl'
     # saves the model, compress stores the result in one model
-    joblib.dump(clf, fn, compress = 1)
+    joblib.dump(clf, fn, compress=1)
 
     start_predict = time.time()
     pred = clf.predict(X)
@@ -146,9 +147,9 @@ def main():
     fig, axs = plt.subplots(2, 3, figsize=(15, 8), sharey=False)
 
     ex = Rectangle((0, 0), 0, 0, fc="w", fill=False,
-                    edgecolor='none', linewidth=0)
+                   edgecolor='none', linewidth=0)
     fig.legend([ex, ex, ex, ex, ex, ex, ex, ex, ex, ex],
-                ("Target: %s" % "Water",
+               ("Target: %s" % "Water",
                 "Test Acc.: %s" % round(test_score, 3),
                 "Train Acc.: %s" % round(train_score, 3),
                 "Test Size: %s" % test_size,
@@ -158,8 +159,8 @@ def main():
                 "Max Features: %s" % clf.get_params()['max_features'],
                 "Max Depth: %s" % clf.get_params()['max_depth']),
 
-                loc='lower right',
-                ncol=3)
+               loc='lower right',
+               ncol=3)
 
     axs[0, 0].set_title('Reference')
     axs[0, 0].imshow(y.reshape(xl, xs), cmap='gray')
@@ -169,13 +170,13 @@ def main():
 
     axs[0, 2].set_title('Visual ConfMatrix')
     patches = [mpatches.Patch(color=[0, 1, 0], label='TP'),
-                mpatches.Patch(color=[1, 0, 0], label='FP'),
-                mpatches.Patch(color=[1, .5, 0], label='FN'),
-                mpatches.Patch(color=[0, 0, 1], label='TN')]
+               mpatches.Patch(color=[1, 0, 0], label='FP'),
+               mpatches.Patch(color=[1, .5, 0], label='FN'),
+               mpatches.Patch(color=[0, 0, 1], label='TN')]
     axs[0, 2].legend(loc='upper right',
-                        handles=patches,
-                        ncol=2,
-                        bbox_to_anchor=(1, -0.15))  # moves the legend outside
+                     handles=patches,
+                     ncol=2,
+                     bbox_to_anchor=(1, -0.15))  # moves the legend outside
     axs[0, 2].imshow(visualization)
 
     axs[1, 0].set_title('Test Data Confusion Matrix')
@@ -184,7 +185,7 @@ def main():
     for i in range(confmatTest.shape[0]):
         for j in range(confmatTest.shape[1]):
             axs[1, 0].text(x=j, y=i,
-                            s=round(confmatTest[i, j], 3))
+                           s=round(confmatTest[i, j], 3))
     axs[1, 0].set_xticklabels([0, 'False', 'True'])
     axs[1, 0].xaxis.set_ticks_position('bottom')
     axs[1, 0].set_yticklabels([0, 'False', 'True'])
@@ -198,7 +199,7 @@ def main():
     for i in range(confmatTrain.shape[0]):
         for j in range(confmatTrain.shape[1]):
             axs[1, 1].text(x=j, y=i,
-                            s=round(confmatTrain[i, j], 3))
+                           s=round(confmatTrain[i, j], 3))
     axs[1, 1].set_xticklabels([0, 'False', 'True'])
     axs[1, 1].xaxis.set_ticks_position('bottom')
     axs[1, 1].set_yticklabels([0, 'False', 'True'])
@@ -285,7 +286,7 @@ def encode_one_hot(target, xs, xl, array=True):
     reslist = []
     for idx, key in enumerate(target.keys()):
         ones = np.ones((xl * xs))
-        s,l,b,tmp = read_binary(f"{reference_data_root}/%s" % target[key])
+        s, l, b, tmp = read_binary(f"{reference_data_root}/%s" % target[key])
 
         # same shape as the raw image
         assert int(s) == int(xs)
@@ -298,9 +299,9 @@ def encode_one_hot(target, xs, xl, array=True):
         t = ones * vals[len(vals) - 1]
 
         if key == 'water':
-            arr = np.not_equal(tmp,t)
+            arr = np.not_equal(tmp, t)
         else:
-            arr = np.logical_and(tmp,t)
+            arr = np.logical_and(tmp, t)
         # at this stage we have an array that has
         # ones where the class exists
         # and zeoes where it doesn't
