@@ -41,22 +41,20 @@ def create_model(input_dim, output_dim, test=False):
     else:
         return tf.keras.models.Sequential([
     tf.keras.layers.Dense(input_dim),
-    tf.keras.layers.Dense(64, activation='relu', kernel_initializer="he_normal"),
+    tf.keras.layers.Dense(256, activation='relu', kernel_initializer="he_normal", kernel_regularizer=regularizers.l2(0.001)),
     tf.keras.layers.BatchNormalization(),
-    tf.keras.layers.Dense(128, activation='relu', kernel_initializer="he_normal"),#, kernel_initializer=regularizers.l2(0.001)),
+    tf.keras.layers.Dense(512, activation='relu', kernel_initializer="he_normal", kernel_regularizer=regularizers.l2(0.001)),#, kernel_initializer=regularizers.l2(0.001)),
     tf.keras.layers.BatchNormalization(),
-    tf.keras.layers.Dense(256, activation='relu', kernel_initializer="he_normal"),#, kernel_initializer=regularizers.l2(0.001)),
+    tf.keras.layers.Dense(1024, activation='relu', kernel_initializer="he_normal", kernel_regularizer=regularizers.l2(0.001)),#, kernel_initializer=regularizers.l2(0.001)),
     tf.keras.layers.BatchNormalization(),
-    # tf.keras.layers.Dense(2048, activation='relu', kernel_initializer="he_normal"),#, kernel_initializer=regularizers.l2(0.001)),
-    # tf.keras.layers.BatchNormalization(),
-    # tf.keras.layers.Dropout(0.5),
-    # tf.keras.layers.Dense(4096, activation='relu', kernel_initializer="he_normal"),#, kernel_initializer=regularizers.l2(0.001)),
-    # tf.keras.layers.BatchNormalization(),
-    # tf.keras.layers.Dropout(0.5),
-    # tf.keras.layers.Dense(8192, activation='relu', kernel_initializer="he_normal"),#, kernel_initializer=regularizers.l2(0.001)),
-    # tf.keras.layers.BatchNormalization(),
-    # tf.keras.layers.Dropout(0.2),
-    # tf.keras.layers.Dense(16384, activation='relu'),#, kernel_regularizer=regularizers.l2(0.001)),
+    tf.keras.layers.Dense(2048, activation='relu', kernel_initializer="he_normal", kernel_regularizer=regularizers.l2(0.001)),
+    tf.keras.layers.BatchNormalization(),
+    tf.keras.layers.Dense(4096, activation='relu', kernel_initializer="he_normal", kernel_regularizer=regularizers.l2(0.001)),
+    tf.keras.layers.BatchNormalization(),
+    tf.keras.layers.Dense(8192, activation='relu', kernel_initializer="he_normal", kernel_regularizer=regularizers.l2(0.001)),
+    tf.keras.layers.BatchNormalization(),
+    tf.keras.layers.Dense(16384, activation='relu', kernel_initializer="he_normal", kernel_regularizer=regularizers.l2(0.001)),
+    tf.keras.layers.BatchNormalization(),
     # tf.keras.layers.Dropout(0.2),
     tf.keras.layers.Dense(output_dim, activation='softmax')
   ])
@@ -80,7 +78,7 @@ def main():
         batch_size = 8192
     else:
         epochs = 1000
-        batch_size = 64
+        batch_size = 256
 
     lr = 0.001
     n_folds = 10
@@ -165,7 +163,14 @@ def main():
     tensorboard_cb = keras.callbacks.TensorBoard(run_logdir)
     filepath= os.path.join(os.curdir, "outs/models/NaiveDeepNet/weights-improvement-{epoch:02d}.hdf5")
     modelsave_cb = keras.callbacks.ModelCheckpoint(filepath, monitor='cat_acc', verbose=0, save_best_only=True, save_weights_only=False, mode='auto', save_freq=1)
-    callbacks = [tensorboard_cb]
+    es_cb = keras.callbacks.EarlyStopping(monitor='val_loss',
+                                            min_delta=0,
+                                            patience=10,
+                                            verbose=0,
+                                            mode='auto',
+                                            baseline=None,
+                                            restore_best_weights=True)
+    callbacks = [tensorboard_cb, es_cb]
 
 
     """----------------------------------------------------------------------------------------------------------------------------
@@ -288,13 +293,13 @@ def main():
     plt.title('Reference')
     plt.imshow(onehot.reshape(xl, xs), cmap='gray')
     plt.savefig(reference_file)
-    print(f'+w\n{reference_file}')
+    print(f'+w {reference_file}')
 
 
     plt.title('Prediction')
     plt.imshow(pred_class.reshape(xl, xs), cmap='gray')
     plt.savefig(prediction_file)
-    print(f'+w\n{prediction_file}')
+    print(f'+w {prediction_file}')
 
 
     plt.title("Test Confusion Matrix")
@@ -313,7 +318,7 @@ def main():
     plt.xlabel('predicted label')
     plt.ylabel('reference label', rotation=90)
     plt.savefig(test_cmat_file)
-    print(f'+w\n{test_cmat_file}')
+    print(f'+w {test_cmat_file}')
     plt.clf()
 
 
@@ -330,7 +335,7 @@ def main():
     plt.ylabel('reference label', rotation=90)
     plt.margins(0.2)
     plt.savefig(train_cmat_file)
-    print(f'+w\n{train_cmat_file}')
+    print(f'+w {train_cmat_file}')
     plt.clf()
 
 
@@ -341,7 +346,7 @@ def main():
     plt.xlabel('Epoch')
     plt.legend(['Train', 'Val'], loc='upper left')
     plt.savefig(loss_file)
-    print(f'+w\n{loss_file}')
+    print(f'+w {loss_file}')
     plt.clf()
 
 
@@ -354,7 +359,7 @@ def main():
     plt.xlabel('Epoch')
     plt.legend(['TP', 'FP', 'FN', 'FP'], loc="upper left")
     plt.savefig(train_conf_file)
-    print(f'+w\n{train_conf_file}')
+    print(f'+w {train_conf_file}')
     plt.clf()
 
 
@@ -362,12 +367,12 @@ def main():
     plt.plot(history.history['val_tp'])
     plt.plot(history.history['val_fp'])
     plt.plot(history.history['val_fn'])
-    plt.plot(history.history['val_fp'])
+    plt.plot(history.history['val_tn'])
     plt.ylabel('No. of Pixels', rotation=90)
     plt.xlabel('Epoch')
-    plt.legend(['TP', 'FP', 'FN', 'FP'], loc="upper left")
+    plt.legend(['TP', 'FP', 'FN', 'TN'], loc="upper left")
     plt.savefig(val_conf_file)
-    print(f'+w\n{val_conf_file}')
+    print(f'+w {val_conf_file}')
     plt.clf()
 
 
@@ -378,7 +383,7 @@ def main():
     plt.xlabel("Epoch")
     plt.legend(['Train', 'Validation'])
     plt.savefig(cat_acc_file)
-    print(f'+w\n{cat_acc_file}')
+    print(f'+w {cat_acc_file}')
     plt.clf()
 
     with open(summary_file, 'w') as f:
@@ -562,7 +567,6 @@ def build_vis(prediction, y, shape):
             raise Exception("There was a problem comparing the pixel", idx)
 
     return visualization.reshape(shape)
-
 
 
 if __name__ == "__main__":
