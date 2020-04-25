@@ -5,7 +5,6 @@ from keras.wrappers.scikit_learn import KerasClassifier
 import matplotlib.patches as mpatches
 from matplotlib.patches import Rectangle
 from sklearn.preprocessing import StandardScaler
-from sklearn.preprocessing import MinMaxScaler
 from sklearn.utils import class_weight
 from sklearn.model_selection import cross_val_score
 from sklearn.model_selection import StratifiedKFold
@@ -145,8 +144,7 @@ def main():
         cols, rows, bands, X = read_binary(
             f'{raw_data_root}S2A.bin', to_string=False)
         X = X.reshape(cols * rows, bands)
-        # X = StandardScaler().fit_transform(X)  # standardize unit variance and 0 mean
-        X = MinMaxScaler().fit_transform(X)
+        X = StandardScaler().fit_transform(X)  # standardize unit variance and 0 mean
         onehot = encode_one_hot(target, cols, rows, array=True)
         tmp = np.zeros((X.shape[0], X.shape[1] + 1))
         tmp[:, :X.shape[1]] = X
