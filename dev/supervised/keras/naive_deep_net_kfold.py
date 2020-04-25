@@ -5,6 +5,7 @@ from keras.wrappers.scikit_learn import KerasClassifier
 import matplotlib.patches as mpatches
 from matplotlib.patches import Rectangle
 from sklearn.preprocessing import StandardScaler
+from sklearn.preprocessing import MinMaxScaler
 from sklearn.utils import class_weight
 from sklearn.model_selection import cross_val_score
 from sklearn.model_selection import StratifiedKFold
@@ -12,6 +13,7 @@ from sklearn.metrics import confusion_matrix
 from sklearn.model_selection import train_test_split
 import multiprocessing
 import numpy as np
+import pandas as pd
 import matplotlib.pyplot as plt
 import tensorflow.keras as keras
 import tensorflow as tf
@@ -30,6 +32,19 @@ root_path = "data/full/"
 reference_data_root = f"{root_path}data_bcgw/"
 raw_data_root = f"{root_path}data_img/"
 
+target = {
+        "conifer" : "CONIFER.bin",
+        "ccut" : "CCUTBL.bin",
+        "water": "WATER.bin",
+        "broadleaf" : "BROADLEAF.bin",
+        "shrub" : "SHRUB.bin",
+        "mixed" : "MIXED.bin",
+        "herb" : "HERB.bin",
+        "exposed" : "EXPOSED.bin",
+        "river" : "Rivers.bin",
+        # "road" : "ROADS.bin",
+        # "vri" : "vri_s3_objid2.tif_proj.bin",
+    }
 
 def create_model(input_dim, output_dim, test=False):
     if test:
@@ -41,26 +56,34 @@ def create_model(input_dim, output_dim, test=False):
     else:
         return tf.keras.models.Sequential([
     tf.keras.layers.Dense(input_dim),
-    tf.keras.layers.Dense(512, activation='relu', kernel_initializer="he_normal", kernel_regularizer=regularizers.l2(0.001)),
+    tf.keras.layers.Dense(512, activation='relu'),#, kernel_initializer="he_normal", kernel_regularizer=regularizers.l2(0.001)),
     tf.keras.layers.BatchNormalization(),
-    tf.keras.layers.Dense(1024, activation='relu', kernel_initializer="he_normal", kernel_regularizer=regularizers.l2(0.001)),#, kernel_initializer=regularizers.l2(0.001)),
+    tf.keras.layers.Dense(1024, activation='relu'),# kernel_initializer="he_normal", kernel_regularizer=regularizers.l2(0.001)),#, kernel_initializer=regularizers.l2(0.001)),
     tf.keras.layers.BatchNormalization(),
-    tf.keras.layers.Dense(2048, activation='relu', kernel_initializer="he_normal", kernel_regularizer=regularizers.l2(0.001)),
+    tf.keras.layers.Dense(1024, activation='relu'),# kernel_initializer="he_normal", kernel_regularizer=regularizers.l2(0.001)),
     tf.keras.layers.BatchNormalization(),
-    tf.keras.layers.Dense(2048, activation='relu', kernel_initializer="he_normal", kernel_regularizer=regularizers.l2(0.001)),
+    tf.keras.layers.Dense(2048, activation='relu'),# kernel_initializer="he_normal", kernel_regularizer=regularizers.l2(0.001)),
     tf.keras.layers.BatchNormalization(),
-    # tf.keras.layers.Dropout(0.5),
-    # tf.keras.layers.Dense(4096, activation='relu', kernel_initializer="he_normal"),#, kernel_initializer=regularizers.l2(0.001)),
+    tf.keras.layers.Dense(2048, activation='relu'),# kernel_initializer="he_normal", kernel_regularizer=regularizers.l2(0.001)),
+    tf.keras.layers.BatchNormalization(),
+    tf.keras.layers.Dense(4096, activation='relu'),# kernel_initializer="he_normal", kernel_regularizer=regularizers.l2(0.001)),
+    tf.keras.layers.BatchNormalization(),
+    tf.keras.layers.Dense(4096, activation='relu'),# kernel_initializer="he_normal", kernel_regularizer=regularizers.l2(0.001)),
+    tf.keras.layers.BatchNormalization(),
+
+
+
+
+    # tf.keras.layers.Dense(4096, activation='relu', kernel_initializer="he_normal", kernel_regularizer=regularizers.l2(0.001)),
+    # tf.keras.layers.BatchNormalization(),
+    # tf.keras.layers.Dense(8192, activation='relu', kernel_initializer="he_normal", kernel_regularizer=regularizers.l2(0.001)),
+    # tf.keras.layers.BatchNormalization(),
+    # tf.keras.layers.Dense(16384, activation='relu', kernel_initializer="he_normal", kernel_regularizer=regularizers.l2(0.001)),
     # tf.keras.layers.BatchNormalization(),
     # tf.keras.layers.Dropout(0.5),
-    # tf.keras.layers.Dense(8192, activation='relu', kernel_initializer="he_normal"),#, kernel_initializer=regularizers.l2(0.001)),
-    # tf.keras.layers.BatchNormalization(),
-    # tf.keras.layers.Dropout(0.2),
-    # tf.keras.layers.Dense(16384, activation='relu'),#, kernel_regularizer=regularizers.l2(0.001)),
-    # tf.keras.layers.Dropout(0.2),
+
     tf.keras.layers.Dense(output_dim, activation='softmax')
   ])
-
 
 def main():
 
@@ -79,22 +102,10 @@ def main():
         epochs = 1
         batch_size = 8192
     else:
-        epochs = 1000
-        batch_size = 1024
+        epochs = 10
+        batch_size = 4096
 
-    lr = 0.00333
-    n_folds = 10
-    METRICS = [
-        keras.metrics.CategoricalAccuracy(name='cat_acc'),
-        keras.metrics.TruePositives(name='tp'),
-        keras.metrics.FalsePositives(name='fp'),
-        keras.metrics.TrueNegatives(name='tn'),
-        keras.metrics.FalseNegatives(name='fn'),
-        keras.metrics.BinaryAccuracy(name='accuracy'),
-        keras.metrics.Precision(name='precision'),
-        keras.metrics.Recall(name='recall'),
-        keras.metrics.AUC(name='auc'),
-    ]
+    lr = 0.003333
 
     target = {
         "conifer" : "CONIFER.bin",
@@ -110,54 +121,89 @@ def main():
         # "vri" : "vri_s3_objid2.tif_proj.bin",
     }
 
-# ## Preprocess
-    cols, rows, bands, X = read_binary(
-        f'{raw_data_root}S2A.bin', to_string=False)
-    X = X.reshape(cols * rows, bands)
-    X = StandardScaler().fit_transform(X)  # standardize unit variance and 0 mean
-    onehot = encode_one_hot(target, cols, rows, array=True)
+    METRICS = [
+      # keras.metrics.CategoricalAccuracy(name='cat_acc'),
+      keras.metrics.TruePositives(name='tp'),
+      keras.metrics.TrueNegatives(name='tn'),
+      keras.metrics.FalsePositives(name='fp'),
+      keras.metrics.FalseNegatives(name='fn'),
+      keras.metrics.CategoricalAccuracy(name='categorical_accuracy'),
+      keras.metrics.Precision(name='precision'),
+      keras.metrics.Recall(name='recall'),
+      keras.metrics.AUC(name='auc'),
+      keras.metrics.SensitivityAtSpecificity(.95)
+    ]
 
-    """-----------------------------------------------------------
-    * Cross Val
+
+    """----------------------------------------------------------------------------------------------------------------------------
+    * Initial Load
     """
-    # store the image together
-    tmp = np.zeros((X.shape[0], X.shape[1] + 1))
-    tmp[:, :X.shape[1]] = X
-    tmp[:, X.shape[1]] = onehot
-    # make sure the input is spatially sound
-    tmp = tmp.reshape((cols, rows, bands + 1))
-    X_subbed = create_sub_images(tmp, cols, rows, bands+1)
+    data_path = os.path.join(root_path, 'subsampled')
+    if not os.path.exists(data_path):
+        os.mkdir(f'{root_path}/subsampled')
 
-    X = X_subbed[:5, :,:,:]
+        cols, rows, bands, X = read_binary(
+            f'{raw_data_root}S2A.bin', to_string=False)
+        X = X.reshape(cols * rows, bands)
+        # X = StandardScaler().fit_transform(X)  # standardize unit variance and 0 mean
+        X = MinMaxScaler().fit_transform(X)
+        onehot = encode_one_hot(target, cols, rows, array=True)
+        tmp = np.zeros((X.shape[0], X.shape[1] + 1))
+        tmp[:, :X.shape[1]] = X
+        tmp[:, X.shape[1]] = onehot
+        # make sure the input is spatially sound
+        tmp = tmp.reshape((cols, rows, bands + 1))
+        subbed = create_sub_images(tmp, cols, rows, bands+1)
+        print(f"+w {data_path}/full.npy" )
+        np.save(f'{data_path}/full', subbed)
+    else:
+        subbed = np.load(f'{data_path}/full.npy')
 
 
-    X_train = X[:,:,:,:11]
-    y_train = X[:,:,:,11]
-    X_test = X_subbed[5, :,:,:11]
-    y_test = X_subbed[5,:,:,11]
-    X_val = X_subbed[6, :,:,:11]
-    y_val = X_subbed[6,:,:,11]
-
-    X_train = X_train.reshape(X_train.shape[0] * X_train.shape[1] * X_train.shape[2], X_train.shape[3])
-    y_train = y_train.reshape(y_train.shape[0] * y_train.shape[1] * y_train.shape[2])
-
-    X_train, y_train = oversample(X_train, y_train, n_classes=len(target)+1, extra_samples=0)
-
-    y_train = keras.utils.to_categorical(y_train, num_classes=len(target) + 1)
-    y_test = keras.utils.to_categorical(y_test, num_classes=len(target) + 1)
-    y_val = keras.utils.to_categorical(y_val, num_classes=len(target) + 1)
-
-    n_features = X_train.shape[1]
     n_classes = len(target) + 1
     rand_seed = 123 # reproducability
     np.random.seed(rand_seed)
     tf.random.set_seed(rand_seed)
 
+    """----------------------------------------------------------------------------------------------------------------------------
+    * Output Directories
+    """
+    if not os.path.exists('outs'):
+        print('creating outs directory in root')
+        os.mkdir('outs')
+    if not os.path.exists('outs/NaiveDeepNet/'):
+        print('creating outs/NaiveDeepNet in root')
+        os.mkdir('outs/NaiveDeepNet/')
+    outdir = get_run_logdir('outs/NaiveDeepNet/')
+    if not os.path.exists(outdir):
+        os.mkdir(outdir)
+    model_dir = f'{outdir}/models'
+    os.mkdir(model_dir)
+
+
+    """----------------------------------------------------------------------------------------------------------------------------
+    * Callbacks
+    """
+    root_logdir = os.path.join(os.curdir, "logs")
+    run_logdir = get_run_logdir(root_logdir)
+    tensorboard_cb = keras.callbacks.TensorBoard(run_logdir)
+    model_filepath = os.path.join(model_dir, "weights-improvement-{epoch:02d}-{val_loss:04d}.hdf5")
+    tensorboard_cb = keras.callbacks.TensorBoard(run_logdir)
+    modelsave_cb = keras.callbacks.ModelCheckpoint(model_filepath, monitor='cat_acc', verbose=0, save_best_only=True, save_weights_only=False, mode='auto', save_freq=1)
+    es_cb = keras.callbacks.EarlyStopping(monitor='val_loss',
+                                            min_delta=0,
+                                            patience=10,
+                                            verbose=0,
+                                            mode='auto',
+                                            baseline=None,
+                                            restore_best_weights=True)
+    callbacks = [tensorboard_cb, es_cb]
+
 
     """----------------------------------------------------------------------------------------------------------------------------
     * Model
     """
-    model = create_model(X_train.shape[1],y_train.shape[1], test=test)
+    model = create_model(subbed.shape[3] - 1, len(target)+1)
 
     optimizer = keras.optimizers.Nadam(learning_rate=lr, beta_1=0.9, beta_2=0.999)
 
@@ -167,39 +213,89 @@ def main():
                 metrics=METRICS)
 
 
-    """----------------------------------------------------------------------------------------------------------------------------
-    * Callbacks
+    """-----------------------------------------------------------
+    * Cross Val
     """
-    # to visualize training in the browser'
-    root_logdir = os.path.join(os.curdir, "logs")
-    run_logdir = get_run_logdir(root_logdir)
-    tensorboard_cb = keras.callbacks.TensorBoard(run_logdir)
-    filepath= os.path.join(os.curdir, "outs/models/NaiveDeepNet/weights-improvement-{epoch:02d}.hdf5")
-    modelsave_cb = keras.callbacks.ModelCheckpoint(filepath, monitor='cat_acc', verbose=0, save_best_only=True, save_weights_only=False, mode='auto', save_freq=1)
-    callbacks = []
+
+    X_val = subbed[6:8,:,:,:11]
+    y_val = subbed[6:8,:,:,11]
+    X_test = subbed[8:10,:,:,:11]
+    y_test = subbed[8:10,:,:,11]
+
+    X_val = X_val.reshape(X_val.shape[0] * X_val.shape[1] * X_val.shape[2], X_val.shape[3])
+    y_val = y_val.ravel()
+    X_test = X_test.reshape(X_test.shape[0] * X_test.shape[1] * X_test.shape[2], X_test.shape[3])
+    y_test = y_test.ravel()
+
+    del subbed
+    y_test = keras.utils.to_categorical(y_test, num_classes=len(target) + 1)
+    y_val = keras.utils.to_categorical(y_val, num_classes=len(target) + 1)
+
+    data_path = os.path.join(root_path, 'oversample')
+    if not os.path.exists(data_path):
+        os.mkdir(f'{root_path}/oversample')
+
+    for epoch in range(epochs):
+        print(f"Epoch {epoch}/{epochs}")
+        for idx in range(5):
 
 
-    """----------------------------------------------------------------------------------------------------------------------------
-    * Training
-    """
-    start_fit = time.time()
+            if os.path.exists(f'{data_path}/{idx}_data.npy'):
+                X_train = np.load(f'{data_path}/{idx}_data.npy')
+                y_train = np.load(f'{data_path}/{idx}_label.npy')
+            else:
 
-    history = model.fit(X_train, y_train,
-                        batch_size=batch_size,
-                        epochs=epochs,
-                        class_weight=class_weight,
-                        verbose=1,
-                        validation_split=0.0,
-                        validation_data=(X_val, y_val),
-                        shuffle=True,
-                        use_multiprocessing=True,
-                        workers=-1,
-                        callbacks=callbacks)
+                np.save(f'{data_path}/{idx}_data', X_train)
+                np.save(f'{data_path}/{idx}_label', y_train)
 
-    end_fit = time.time()
+            print("X_train shape: ", X_train.shape)
+            print("X_test shape: ", X_test.shape)
+            print("X_val shape: ", X_val.shape)
 
+            _ = np.histogram(y_train, bins=len(target) + 1)
+            print(_[0])
 
-    print(history.history)
+            y_train = keras.utils.to_categorical(y_train, num_classes=len(target) + 1)
+
+            n_features = X_train.shape[1]
+
+            """----------------------------------------------------------------------------------------------------------------------------
+            * Training
+            """
+            start_fit = time.time()
+
+            history = model.fit(X_train, y_train,
+                                batch_size=batch_size,
+                                epochs=3,
+                                verbose=1,
+                                validation_split=0.0,
+                                validation_data=(X_val, y_val),
+                                shuffle=True,
+                                use_multiprocessing=True,
+                                workers=-1,
+                                callbacks=callbacks)
+
+            end_fit = time.time()
+
+            """----------------------------------------------------------------------------------------------------------------------------
+            * Training
+            """
+            start_fit = time.time()
+
+            history = model.fit(X_train, y_train,
+                                batch_size=batch_size,
+                                epochs=1,
+                                class_weight=class_weight,
+                                verbose=1,
+                                validation_split=0.0,
+                                validation_data=(X_val, y_val),
+                                shuffle=True,
+                                use_multiprocessing=True,
+                                workers=-1,
+                                callbacks=callbacks)
+
+            end_fit = time.time()
+
 
     # read in the larger image
     # predict over the image
@@ -210,16 +306,16 @@ def main():
     print("Predicting X_test")
     # test set prediction
     start_predict = time.time()
-    test_pred = model.predict(X_test)
+    test_pred = model.predict(X_test, batch_size=1024)
     end_predict = time.time()
 
     # train set prediction
     print("Predicting X_train")
-    train_pred = model.predict(X_train)
+    train_pred = model.predict(X_train,  batch_size=1024)
 
     # full prediction
     print("Predicting X")
-    pred = model.predict(X)
+    pred = model.predict(X.reshape(X.shape[1] * X.shape[2], X.shape[3]),  batch_size=1024)
 
     # Convert to one dimensional arrays of confidence and class
     test_pred_confidence = np.amax(test_pred, axis=1)
@@ -382,9 +478,6 @@ def main():
     plt.clf()
 
 
-    plt.title("Categorical Accuracy")
-    plt.plot(history.history['categorical_accuracy'])
-    plt.plot(history.history['val_categorical_accuracy'])
     plt.ylabel('value', rotation=90)
     plt.xlabel("Epoch")
     plt.legend(['Train', 'Validation'])
@@ -400,10 +493,20 @@ def checkit(passed):
     print()
     print("CHECKIT")
     print(type(passed))
-    print(passed)
     print(passed.shape)
     print()
 
+def get_file_path(path):
+    dirs = path.split('/')
+    path = ""
+
+    for dir in dirs:
+        print(dir)
+        if not os.path.exists(dir):
+            path = os.path.join(path, os.mkdir(dir))
+        else:
+            path += f"/{dir}"
+        print(path)
 
 def get_run_logdir(root_logdir):
     import time
@@ -448,7 +551,6 @@ def create_sub_images(X, cols, rows, bands):
     for row in range(5):  # represents the 5 'rows' of this image
         # represents the left and right side of the image split down the middle
         for col in range(2):
-            checkit(X)
             sub_images[index, :, :, :] = X[sub_cols * col: sub_cols *
                                            (col + 1), sub_rows * row: sub_rows * (row + 1), :]
             index += 1
@@ -468,7 +570,8 @@ def oversample(X_train, y_train, n_classes=10, extra_samples=50000):
     vals, counts = np.unique(tmp[:, X_train.shape[1]], return_counts=True)
     maxval = np.amax(counts) + extra_samples
 
-    # WARNING, your validation data has leakage,
+    print(f"Sampling all classes to {maxval}")
+    is_max = True
     for idx in range(n_classes):
         if(idx == 0):
             # ignore these, they aren't labeled values
@@ -476,20 +579,24 @@ def oversample(X_train, y_train, n_classes=10, extra_samples=50000):
 
         # return the true values of a class
         idx_class_vals_outside_while = tmp[tmp[:, X_train.shape[1]] == idx]
+        print(f"Before Oversample: {idx_class_vals_outside_while.shape[0]} {list(target)[idx-1]} pixels")
 
         # oversample until we have n samples
-        while(tmp[tmp[:, X_train.shape[1]] == idx].shape[0] < maxval):
-
+        while(tmp[tmp[:, X_train.shape[1]] == idx].shape[0] < maxval): # while the total true values is less than maxval
+            is_max = False
             # this grows exponentially
-            idx_class_vals_inside_while = tmp[tmp[:, X_train.shape[1]] == idx]
-            # if we are halfway there, let's ease up and do things slower
-            # so our classes have similar amounts of samples
-            if idx_class_vals_inside_while.shape[0] > maxval//2:
+            idx_class_vals_inside_while = tmp[tmp[:, X_train.shape[1]] == idx] # copy all the true vals to the variable
+            if idx_class_vals_inside_while.shape[0] > maxval//2: # if we are passed half way to maxval
+
+                sample = idx_class_vals_outside_while[:maxval - idx_class_vals_inside_while.shape[0],:] # get a random sample of how many more samples we need
                 tmp = np.concatenate(
-                    (tmp, idx_class_vals_outside_while), axis=0)
-            else:
+                    (tmp, sample), axis=0)
+            else: # else we can safely double the pixels up without having more samples than maxval
                 tmp = np.concatenate(
                     (tmp, idx_class_vals_inside_while), axis=0)
+        np.random.shuffle(tmp)
+
+
     X_train = tmp[:, :X_train.shape[1]]
     y_train = tmp[:, X_train.shape[1]]
 
