@@ -19,17 +19,15 @@ def mkdir(path):
         return False
 
 
-def create_sub_images(X, cols, rows, bands):
+def create_sub_images(X, y, rows, cols):
     # TODO: Be nice to automate this.. need some type of LCD function ...
     # not sure how to automate this yet but I know that these dims will create 10 sub images
     sub_cols = cols//2
     sub_rows = rows//5
     # shape of the sub images [sub_cols, sub_rows, bands]
-    print("New subimage shape (%s, %s, %s)" % (sub_cols, sub_rows, bands))
-
-    # container for the sub images
-    sub_images = np.zeros((10, sub_cols, sub_rows, bands))
-
+    # X = X.reshape(X.shape[2], X.shape[0], X.shape[1])
+    subimages = []
+    sublabels = []
     # this will grab a sub set of the original image beginning with the top left corner, then the right top corner
     # and iteratively move down the image from left to right
 
@@ -53,6 +51,11 @@ def create_sub_images(X, cols, rows, bands):
             label = y[sub_cols * col: sub_cols *
                                            (col + 1), sub_rows * row: sub_rows * (row + 1)]
 
+            plt.imshow(img[3,:,:])
+            plt.show()
+
+            subimages.append(img)
+            sublabels.append(label)
             index += 1
 
 
@@ -183,18 +186,18 @@ def create_paths(root):
     print(f'X shape {X.shape}')
     print(f'y shape {y.shape}')
 
-    plt.imshow(y, cmap='gray')
-    plt.show()
+
     if mkdir(crop_dir):
         # now we have to crop X and y
+        subimages, sublabels = create_sub_images(X, y, X.shape[0], X.shape[1])
 
-
-        pass
     else:
         try:
-            pass
+            subimages, sublabels = create_sub_images(X, y, X.shape[0], X.shape[1])
+
         except:
-            pass
+            subimages, sublabels = create_sub_images(X, y, X.shape[0], X.shape[1])
+
             # attempt to load the saved cropped arrays
 
             # pass

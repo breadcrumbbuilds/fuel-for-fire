@@ -10,34 +10,34 @@ from Utils.Helper import rescale
 def main():
 
     # TODO: Split both the data and the target
-    cols, rows, bands, X = read_binary('data/full/data_img/S2A.bin', to_string=False)
+    # cols, rows, bands, X = read_binary('data/full/data_img/S2A.bin', to_string=False)
+    vis_split_RGB()
+    # # We are creating spatially consistent sub images, so need the original to be in spatial format
 
-    # We are creating spatially consistent sub images, so need the original to be in spatial format
+    # X = X.reshape((cols, rows, bands))
+    # # Let's stuff X with the labels (append them), then the labels will be correctly indexed as well
 
-    X = X.reshape((cols, rows, bands))
-    # Let's stuff X with the labels (append them), then the labels will be correctly indexed as well
+    # print("Original image shape", X.shape)
 
-    print("Original image shape", X.shape)
+    # # this creates equally sized subimages of the original image
+    # sub_images = create_sub_images(X, cols, rows, bands)
 
-    # this creates equally sized subimages of the original image
-    sub_images = create_sub_images(X, cols, rows, bands)
+    # # figure out how many white pixels we need to add total
+    # w = div_by_10(sub_images.shape[1])
+    # h =  div_by_10(sub_images.shape[2])
+    # t, r, l, b = padding(w, h)
 
-    # figure out how many white pixels we need to add total
-    w = div_by_10(sub_images.shape[1])
-    h =  div_by_10(sub_images.shape[2])
-    t, r, l, b = padding(w, h)
+    # img = sub_images[1,:,:,:]
+    # print(img.shape)
+    # # make array of zeros that has the image with the paddings size
+    # tmp = np.zeros((img.shape[0] + l + r, img.shape[1] + t + b, img.shape[2]), dtype=np.float32)
 
-    img = sub_images[1,:,:,:]
-    print(img.shape)
-    # make array of zeros that has the image with the paddings size
-    tmp = np.zeros((img.shape[0] + l + r, img.shape[1] + t + b, img.shape[2]), dtype=np.float32)
+    # tmp[l+1 : img.shape[0] + r, t + 1 : img.shape[1] + b, :] = img
 
-    tmp[l+1 : img.shape[0] + r, t + 1 : img.shape[1] + b, :] = img
-
-    hist, bins = np.histogram(tmp)
-    plt.hist(hist)
-    plt.title("histogram of padded data")
-    plt.show()
+    # hist, bins = np.histogram(tmp)
+    # plt.hist(hist)
+    # plt.title("histogram of padded data")
+    # plt.show()
     # val, count = np.unique(tmp, return_counts=True)
     # print()
 
@@ -110,7 +110,7 @@ def create_sub_images(X, cols, rows, bands):
     original image into 10 sub images
 """
 def vis_split_RGB():
-    s, l, b, X = read_binary('data/data_img/output4_selectS2.bin', to_string=False)
+    s, l, b, X = read_binary('data/full/data_img/S2A.bin', to_string=False)
 
     data_r = X.reshape(b, s * l)
     rgb = np.zeros((l, s, 3))
