@@ -25,7 +25,7 @@ def create_sub_images(X, y, rows, cols):
     sub_cols = cols//2
     sub_rows = rows//5
     # shape of the sub images [sub_cols, sub_rows, bands]
-    # X = X.reshape(X.shape[2], X.shape[0], X.shape[1])
+    X = X.reshape(X.shape[2], X.shape[0], X.shape[1])
     subimages = []
     sublabels = []
     # this will grab a sub set of the original image beginning with the top left corner, then the right top corner
@@ -45,8 +45,8 @@ def create_sub_images(X, y, rows, cols):
     for row in range(5):  # represents the 5 'rows' of this image
         # represents the left and right side of the image split down the middle
         for col in range(2):
-            img = X[:,sub_cols * col: sub_cols *
-                                           (col + 1), sub_rows * row: sub_rows * (row + 1)]
+            img = X[:,sub_cols * col: sub_cols * (col + 1),
+                    sub_rows * row: sub_rows * (row + 1)]
 
             label = y[sub_cols * col: sub_cols *
                                            (col + 1), sub_rows * row: sub_rows * (row + 1)]
