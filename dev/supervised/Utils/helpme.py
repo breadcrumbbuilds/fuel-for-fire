@@ -19,6 +19,47 @@ def mkdir(path):
         return False
 
 
+def create_sub_images(X, cols, rows, bands):
+    # TODO: Be nice to automate this.. need some type of LCD function ...
+    # not sure how to automate this yet but I know that these dims will create 10 sub images
+    sub_cols = cols//2
+    sub_rows = rows//5
+    # shape of the sub images [sub_cols, sub_rows, bands]
+    print("New subimage shape (%s, %s, %s)" % (sub_cols, sub_rows, bands))
+
+    # container for the sub images
+    sub_images = np.zeros((10, sub_cols, sub_rows, bands))
+
+    # this will grab a sub set of the original image beginning with the top left corner, then the right top corner
+    # and iteratively move down the image from left to right
+
+    """
+    Original image         subimages
+    --------                --------
+    |      |                [  ][  ]
+    |      |                [  ][  ]
+    |      |                [  ][  ]
+    |      |                [  ][  ]
+    |      |                [  ][  ]
+    --------                --------
+    """
+    index = 0  # to index the container above for storing each sub image
+    for row in range(5):  # represents the 5 'rows' of this image
+        # represents the left and right side of the image split down the middle
+        for col in range(2):
+            img = X[:,sub_cols * col: sub_cols *
+                                           (col + 1), sub_rows * row: sub_rows * (row + 1)]
+
+            label = y[sub_cols * col: sub_cols *
+                                           (col + 1), sub_rows * row: sub_rows * (row + 1)]
+
+            index += 1
+
+
+    return sub_images
+
+
+
 def encode_one_hot(reference_data_root, xs, xl, array=True):
     """encodes the provided dict into a dense numpy array
     of class values.
