@@ -25,7 +25,9 @@ def create_sub_images(X, y, rows, cols):
     sub_cols = cols//2
     sub_rows = rows//5
     # shape of the sub images [sub_cols, sub_rows, bands]
-    X = X.reshape(X.shape[2], X.shape[0], X.shape[1])
+    X = X.reshape(X.shape[2], X.shape[0], X.shape[1]) # let's deal bands first
+    print(X.shape)
+    
     subimages = []
     sublabels = []
     # this will grab a sub set of the original image beginning with the top left corner, then the right top corner
@@ -45,11 +47,12 @@ def create_sub_images(X, y, rows, cols):
     for row in range(5):  # represents the 5 'rows' of this image
         # represents the left and right side of the image split down the middle
         for col in range(2):
-            img = X[:,sub_cols * col: sub_cols * (col + 1),
-                    sub_rows * row: sub_rows * (row + 1)]
+            img = X[:,
+                    sub_rows * row: sub_rows * (row + 1),
+                    sub_cols * col: sub_cols * (col + 1)]
 
-            label = y[sub_cols * col: sub_cols *
-                                           (col + 1), sub_rows * row: sub_rows * (row + 1)]
+            label = y[sub_rows * row: sub_rows * (row + 1),
+                    sub_cols * col: sub_cols * (col + 1)]
 
             plt.imshow(img[3,:,:])
             plt.show()
@@ -141,18 +144,29 @@ def save_np(arr, path):
 
 
 def create_paths(root):
+    """--------------------------------------------------------------------
+    * Initialize directory structure
+    --------------------------------------------------------------------"""
+    # the assumed dirs
     raw_data = os.path.join(root, "data_img")
     raw_labels = os.path.join(root, "data_bcgw")
-
+    
+    # our new prepared data root
     prep_dir = os.path.join(root, 'prepared') # consider this the root
 
+    # root of the training data
     train_dir = os.path.join(prep_dir, 'train')
 
+    # crop the training data
     crop_dir = os.path.join(train_dir, 'cropped')
 
+    # store the original cropped and oversampled seperately
     orig_dir = os.path.join(crop_dir, 'original')
     osampled_dir = os.path.join(crop_dir, 'oversampled')
 
+    """--------------------------------------------------------------------
+    * Create Prepared Directory and Load Original Image
+    --------------------------------------------------------------------"""
     if mkdir(prep_dir):
         pass
     else:
