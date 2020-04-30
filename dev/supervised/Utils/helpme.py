@@ -25,9 +25,7 @@ def create_sub_images(X, y, rows, cols):
     sub_cols = cols//2
     sub_rows = rows//5
     # shape of the sub images [sub_cols, sub_rows, bands]
-    X = X.reshape(X.shape[2], X.shape[0], X.shape[1]) # let's deal bands first
-    print(X.shape)
-    
+
     subimages = []
     sublabels = []
     # this will grab a sub set of the original image beginning with the top left corner, then the right top corner
@@ -54,15 +52,12 @@ def create_sub_images(X, y, rows, cols):
             label = y[sub_rows * row: sub_rows * (row + 1),
                     sub_cols * col: sub_cols * (col + 1)]
 
-            plt.imshow(img[3,:,:])
-            plt.show()
-
             subimages.append(img)
             sublabels.append(label)
             index += 1
 
 
-    return sub_images
+    return subimages, sublabels
 
 
 
@@ -132,7 +127,7 @@ def rawread(raw_data, raw_labels):
     y = encode_one_hot(raw_labels, cols, rows)
 
 
-    X = X.reshape(rows, cols, bands)
+    X = X.reshape(bands, rows, cols)
     y = y.reshape(rows, cols)
 
     return X, y
@@ -193,9 +188,9 @@ def create_paths(root):
             print("NP failed to load full images")
             print("Reverting to raw read")
             X, y = rawread(raw_data, raw_labels)
-
-        save_np(X, f'{train_dir}/full-img.npy' )
-        save_np(y, f'{train_dir}/full-label.npy')
+            save_np(X, f'{train_dir}/full-img.npy' )
+            save_np(y, f'{train_dir}/full-label.npy')
+        
 
     print(f'X shape {X.shape}')
     print(f'y shape {y.shape}')
@@ -203,15 +198,21 @@ def create_paths(root):
 
     if mkdir(crop_dir):
         # now we have to crop X and y
-        subimages, sublabels = create_sub_images(X, y, X.shape[0], X.shape[1])
+        subimages, sublabels = create_sub_images(X, y, X.shape[1], X.shape[2])
 
     else:
         try:
-            subimages, sublabels = create_sub_images(X, y, X.shape[0], X.shape[1])
+            subimages, sublabels = create_sub_images(X, y, X.shape[1], X.shape[2])
 
         except:
-            subimages, sublabels = create_sub_images(X, y, X.shape[0], X.shape[1])
+            subimages, sublabels = create_sub_images(X, y, X.shape[1], X.shape[2])
 
+    for img, label in zip(subimages, sublabels):
+        
+        fig, axs = plt.subplots(1, 2, sharey=True)
+        axs[0].imshow(img[3,:,:])
+        axs[1].imshow(label)
+        plt.show()
             # attempt to load the saved cropped arrays
 
             # pass
