@@ -17,7 +17,7 @@ sys.path.append(
 from Utils.Misc import read_binary
 from Utils.Helper import *
 
-root_path = "data/full/"
+root_path = "data/full/prepared"
 reference_data_root = f"{root_path}data_bcgw/"
 raw_data_root = f"{root_path}data_img/"
 
@@ -27,7 +27,7 @@ def main():
     """
     # the available configuralbe params for SKlearn
     params = {
-        'n_estimators': 100,
+        'n_estimators': 10,
         'max_features': 0.3,
         'max_depth': 20,
         'verbose': 1,
@@ -46,13 +46,13 @@ def main():
         "broadleaf" : "BROADLEAF.bin",
         "shrub" : "SHRUB.bin",
         "mixed" : "MIXED.bin",
-        "herb" : "HERB.bin",
         "exposed" : "EXPOSED.bin",
+        "herb" : "HERB.bin",
         "river" : "Rivers.bin",
         # "road" : "ROADS.bin",
         # "vri" : "vri_s3_objid2.tif_proj.bin",
     }
-    classes = ["unlabelled"]
+    # classes = ["unlabelled"]
     keys = list(target.keys())
     for key in keys:
         classes.append(key)
@@ -166,7 +166,7 @@ def main():
             score = clf.score(X_test, y_test)
 
             plt.title('Prediction')
-            plt.imshow(pred.reshape(spatial.shape[2], spatial.shape[1]) / 255, cmap='gray')
+            plt.imshow(pred.reshape(spatial.shape[2 ], spatial.shape[1]) / 255, cmap='gray')
             plt.savefig(f'{path}/{train_idx}-prediction')
             plt.close()
             print(f'+w {path}/{train_idx}-prediction')
