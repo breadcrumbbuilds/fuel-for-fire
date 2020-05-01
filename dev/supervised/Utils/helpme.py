@@ -1,5 +1,5 @@
-import os
 import sys
+import os
 import matplotlib.pyplot as plt
 import numpy as np
 
@@ -7,6 +7,7 @@ import numpy as np
 sys.path.append(
     os.path.abspath(os.path.join(os.path.dirname(__file__), os.path.pardir)))
 from Utils.Misc import read_binary
+from Utils.Helper import rescale
 from sklearn.preprocessing import StandardScaler
 
 
@@ -80,8 +81,8 @@ def encode_one_hot(reference_data_root, xs, xl, array=True):
         "broadleaf" : "BROADLEAF.bin",
         "shrub" : "SHRUB.bin",
         "mixed" : "MIXED.bin",
-        "herb" : "HERB.bin",
         "exposed" : "EXPOSED.bin",
+        "herb" : "HERB.bin",
         "river" : "Rivers.bin",
         # "road" : "ROADS.bin",
         # "vri" : "vri_s3_objid2.tif_proj.bin",
@@ -138,6 +139,70 @@ def save_np(arr, path):
     print(f'+w {path}')
 
 
+def RGB(data_r):
+    b, l, s = data_r.shape
+    data_r.reshape(data_r.shape[0], data_r.shape[1] * data_r.shape[2])
+    rgb = np.zeros((l, s, 3))
+
+    for i in range(0, 3):
+        rgb[:, :, i] = data_r[4 - i, :].reshape((l, s))
+    for i in range(0, 3):
+        rgb[:, :, i] = rescale(rgb[:, :, i])
+
+    return rgb
+
+
+def oversample(X, y, n_classes=10, extra_samples=0):
+    X = X.reshape(X.shape[0], X.shape[1] * X.shape[2])
+    y = y.ravel()
+    X_out = np.empty(X.shape)
+    y_out = np.empty(y.shape)
+    # retrieve the counts of the largest class
+    vals, counts = np.unique(y, return_counts=True)
+
+
+    print(vals)
+    print(counts)
+
+    maxval = np.amax(counts) + extra_samples
+    print(f"Sampling all classes to {maxval}")
+
+    for idx in range(n_classes):
+        if(idx == 0):
+            # ignore these, they aren't labeled values
+            continue
+
+        # return the true values of a class
+
+         # creates a boolean array where true samples correspond to the index of our target idx
+
+        indices = np.where(y == idx)
+
+
+        X_ = X[:, indices]
+        X_ = X_.reshape(X_.shape[0], X_.shape[2])
+        y_ = y[indices]
+
+        while y_.shape[0] < maxval:
+            if y_.shape[0] == 0: # there was no label 
+                print(f'Warning, no values found for class {idx}')
+                break
+            if y_.shape[0] < maxval//2: # if we are less than halfway to maxval, exponential
+                X_ = np.concatenate([X_, X_], axis=1)
+                y_ = np.concatenate([y_, y_], axis=0)
+            else: # take a subsample of size (maxval - length of oversample so far)
+                X_ = np.concatenate([X_[:,:maxval-y_.shape[0]], X_], axis=1)
+                y_ = np.concatenate([y_[:maxval-y_.shape[0]], y_])
+
+        # add the oversamples to the output array
+        X_out = np.concatenate([X_out, X_], axis=1)
+        y_out = np.concatenate([y_out, y_], axis=0)
+    print("X_os shape", X_out.shape)
+    print("y_os shape", y_out.shape)
+
+    return X_out, y_out
+
+
 def create_paths(root):
     """--------------------------------------------------------------------
     * Initialize directory structure
@@ -190,51 +255,65 @@ def create_paths(root):
             X, y = rawread(raw_data, raw_labels)
             save_np(X, f'{train_dir}/full-img.npy' )
             save_np(y, f'{train_dir}/full-label.npy')
-        
+
 
     print(f'X shape {X.shape}')
     print(f'y shape {y.shape}')
 
+    """--------------------------------------------------------------------
+    * Crop the image and labels into 10 images, save them
+    --------------------------------------------------------------------"""
 
+    subimages = []
+    sublabels = []
     if mkdir(crop_dir):
         # now we have to crop X and y
         subimages, sublabels = create_sub_images(X, y, X.shape[1], X.shape[2])
-
+        for idx, (img, label) in enumerate(zip(subimages, sublabels)):
+            save_np(img, f'{crop_dir}/{idx}-data')
+            save_np(label, f'{crop_dir}/{idx}-label')
     else:
         try:
+            for idx in range(10):
+                subimages.append(np.load(f'{crop_dir}/{idx}-data.npy'))
+                sublabels.append(np.load(f'{crop_dir}/{idx}-label.npy'))
+        except Exception as e:
+            print(e)
+            print("Failed to load cropped images")
+            print("Reverting to cropping from original image")
+            # if we got part way in the stashed load, make sure we
+            # just reload everything from raw images
+            subimages.clear()
+            sublabels.clear()
             subimages, sublabels = create_sub_images(X, y, X.shape[1], X.shape[2])
+            # we failed to load, let's write the crops to the cropdir so we can read
+            # faster next time
+            for idx, (img, label) in enumerate(zip(subimages, sublabels)):
+                save_np(img, f'{crop_dir}/{idx}-data')
+                save_np(label, f'{crop_dir}/{idx}-label')
 
-        except:
-            subimages, sublabels = create_sub_images(X, y, X.shape[1], X.shape[2])
-
-    for img, label in zip(subimages, sublabels):
-        
-        fig, axs = plt.subplots(1, 2, sharey=True)
-        axs[0].imshow(img[3,:,:])
-        axs[1].imshow(label)
-        plt.show()
-            # attempt to load the saved cropped arrays
-
-            # pass
-            # if mkdir(crop_dir):
-            #     # crop all the images
-            #     pass
-            #     if mkdir(orig_dir):
-            #         # save the cropped originals in here
-            #         pass
-            #         if mkdir(osampled_dir):
-            #             # over sample each sub image and save it here
-            #             pass
-            #         else:
-            #             # load the oversampled images
-            #             pass
-            #     else:
-            #         # load the original images
-
-            #         pass
-
-
-    # here we need tos tore the oversampled cropped images
+    """--------------------------------------------------------------------
+    * Oversample the true values to balance classese in each image, save them
+    --------------------------------------------------------------------"""
+    if mkdir(osampled_dir):
+        for idx, (img, label) in enumerate(zip(subimages, sublabels)):
+            print('Oversampling image', idx)
+            X_sub, y_sub = oversample(img, label)
+            save_np(X_sub, f'{osampled_dir}/{idx}-data')
+            save_np(y_sub, f'{osampled_dir}/{idx}-label')
+            del X_sub
+            del y_sub
+    else:
+        try:
+            for idx, (img, label) in enumerate(zip(subimages, sublabels)):
+                print('Oversampling image', idx)
+                X_sub, y_sub = oversample(img, label)
+                save_np(X_sub, f'{osampled_dir}/{idx}-data')
+                save_np(y_sub, f'{osampled_dir}/{idx}-label')
+                del X_sub
+                del y_sub
+        except Exception as e:
+            print(e)
 
 
 def prepare_data(subpath):
@@ -243,39 +322,5 @@ def prepare_data(subpath):
     raw_data_root = f"{root_path}data_img/"
 
     create_paths(root_path)
-
-#     target = {
-#             "conifer" : "CONIFER.bin",
-#             "ccut" : "CCUTBL.bin",
-#             "water": "WATER.bin",
-#             "broadleaf" : "BROADLEAF.bin",
-#             "shrub" : "SHRUB.bin",
-#             "mixed" : "MIXED.bin",
-#             "herb" : "HERB.bin",
-#             "exposed" : "EXPOSED.bin",
-#             "river" : "Rivers.bin",
-#             # "road" : "ROADS.bin",
-#             # "vri" : "vri_s3_objid2.tif_proj.bin",
-#         }
-
-
-#     data_path = os.path.join(root_path, "prep")
-#     data_path_visuals = os.path.join(data_path, "visuals")
-#     data_path_training = os.path.join(data_path, "train")
-#     mkdir(data_path_visuals)
-#     mkdir(data_path_training)
-
-#     data_path_training_raw = os.path.join(data_path_training, "raw")
-#     data_path_training_scaled = os.path.join(data_path_training, "scaled")
-
-#     mkdir(data_path_training_scaled)
-#     mkdir(data_path_training_raw)
-
-#     cols, rows, bands, X = read_binary(
-#         f'{raw_data_root}S2A.bin', to_string=False)
-
-#     X_train = X.reshape((rows * cols, bands))
-#     np.save(f'{data_path_training_raw}/raw', X_train)
-#     np.save(f'{data_path_training_scaled}/scaled', StandardScaler().fit_transform(X_train))
 
 prepare_data('full')
