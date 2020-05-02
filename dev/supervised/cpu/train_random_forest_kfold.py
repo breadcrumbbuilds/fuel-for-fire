@@ -1,6 +1,7 @@
 from sklearn.ensemble import RandomForestClassifier
 import keras
 from sklearn.model_selection import train_test_split
+from sklearn.utils.class_weight import compute_class_weight
 from sklearn.preprocessing import OneHotEncoder
 from sklearn.metrics import confusion_matrix
 from matplotlib.patches import Rectangle
@@ -43,6 +44,7 @@ def main():
     * Configuration
     """
 
+
     target = {
         "conifer" : "CONIFER.bin",
         "ccut" : "CCUTBL.bin",
@@ -60,7 +62,15 @@ def main():
     keys = list(target.keys())
     for key in keys:
         classes.append(key)
+    y = np.load("data/full/prepared/train/full-label.npy").ravel()
+    class_weights = dict(np.ndenumerate(compute_class_weight('balanced', np.unique(y), y))) # create a dict of class weights
+    class_weights[0,] = 0.0 # override the compute class weights and set the unlabelled class to zero weight
+    del y
 
+    print("Class Weights")
+    for c in class_weights:
+        print(c,class_weights[c])
+    print()
     # the available configuralbe params for SKlearn
     params = {
                 'n_estimators': 0,
@@ -70,7 +80,8 @@ def main():
                 'n_jobs': -1,
                 # 'bootstrap': False,
                 'oob_score': True,
-                'warm_start': True
+                'warm_start': True,
+                'class_weight': class_weights
                 }
     # used to onehot encode all of the classes if need be
 
@@ -167,9 +178,10 @@ def main():
 
                 plt.title('Prediction')
                 plt.imshow(pred.reshape(rows, cols) / 255, cmap='gray')
-                plt.savefig(f'{path}/{train_idx}-prediction')
+
+                plt.savefig(f'{path}/{p}_{train_idx}-prediction')
                 plt.close()
-                print(f'+w {path}/{train_idx}-prediction')
+                print(f'+w {path}/{p}_{train_idx}-prediction')
 
                 plt.title("Test Confusion Matrix")
                 plt.matshow(confmatTest, cmap=plt.cm.Blues, alpha=0.5)
@@ -183,10 +195,10 @@ def main():
                 plt.tick_params('both', labelsize=8, labelrotation=45)
                 plt.xlabel('predicted label')
                 plt.ylabel('reference label', rotation=90)
-                plt.savefig(f'{path}/{train_idx}-test_confusion_matrix')
+                plt.savefig(f'{path}/{p}_{train_idx}-test_confusion_matrix')
                 print(f'+w {path}/{train_idx}-test_confusion_matrix')
                 plt.close()
-                with open(path + "results.txt", "w") as f:
+                with open(os.path.join(path, "results.txt"), "w") as f:
                     f.write("Score: " + str(score))
                     f.write("\nProcessing Times:")
                     f.write(json.dumps(processing_time, indent=4, separators=(',', ': ')))
