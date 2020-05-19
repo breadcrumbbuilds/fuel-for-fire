@@ -23,7 +23,7 @@ def mkdir(path):
 def create_sub_images(X, y, rows, cols):
     # TODO: Be nice to automate this.. need some type of LCD function ...
     # not sure how to automate this yet but I know that these dims will create 10 sub images
-    sub_cols = cols//2
+    sub_cols = cols
     sub_rows = rows//5
     # shape of the sub images [sub_cols, sub_rows, bands]
 
@@ -45,17 +45,16 @@ def create_sub_images(X, y, rows, cols):
     index = 0  # to index the container above for storing each sub image
     for row in range(5):  # represents the 5 'rows' of this image
         # represents the left and right side of the image split down the middle
-        for col in range(2):
-            img = X[:,
-                    sub_rows * row: sub_rows * (row + 1),
-                    sub_cols * col: sub_cols * (col + 1)]
+        img = X[:,
+                sub_rows * row: sub_rows * (row + 1),
+                sub_cols * 0: sub_cols]
 
-            label = y[sub_rows * row: sub_rows * (row + 1),
-                    sub_cols * col: sub_cols * (col + 1)]
+        label = y[sub_rows * row: sub_rows * (row + 1),
+                sub_cols * 0: sub_cols]
 
-            subimages.append(img)
-            sublabels.append(label)
-            index += 1
+        subimages.append(img)
+        sublabels.append(label)
+        index += 1
 
 
     return subimages, sublabels
@@ -261,7 +260,7 @@ def create_paths(root):
     print(f'y shape {y.shape}')
 
     """--------------------------------------------------------------------
-    * Crop the image and labels into 10 images, save them
+    * Crop the image and labels into 5 images, save them
     --------------------------------------------------------------------"""
 
     subimages = []
@@ -274,7 +273,7 @@ def create_paths(root):
             save_np(label, f'{crop_dir}/{idx}-label')
     else:
         try:
-            for idx in range(10):
+            for idx in range(5):
                 subimages.append(np.load(f'{crop_dir}/{idx}-data.npy'))
                 sublabels.append(np.load(f'{crop_dir}/{idx}-label.npy'))
         except Exception as e:

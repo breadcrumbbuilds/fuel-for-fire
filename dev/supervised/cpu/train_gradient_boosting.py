@@ -216,19 +216,15 @@ def main():
     plt.show()
 
 
-def RGB(path):
-    samples, lines, bands, X = read_binary(path)
-    s = int(samples)
-    l = int(lines)
-    b = int(bands)
-    data_r = X.reshape(b, s * l)
+def RGB(data_r):
+    data_r.reshape(data_r.shape[0], data_r.shape[1] * data_r.shape[2])
     rgb = np.zeros((l, s, 3))
 
     for i in range(0, 3):
         rgb[:, :, i] = data_r[3 - i, :].reshape((l, s))
     for i in range(0, 3):
         rgb[:, :, i] = rescale(rgb[:, :, i])
-    del X
+
     return rgb
 
 
