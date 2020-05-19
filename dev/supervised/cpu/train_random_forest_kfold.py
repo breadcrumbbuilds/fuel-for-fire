@@ -65,6 +65,8 @@ def main():
     y = np.load("data/full/prepared/train/full-label.npy").ravel()
     class_weights = dict(np.ndenumerate(compute_class_weight('balanced', np.unique(y), y))) # create a dict of class weights
     class_weights[0,] = 0.0 # override the compute class weights and set the unlabelled class to zero weight
+    class_weights[1,] =class_weights[1,] * 1.2
+    class_weights[2,] = class_weights[2,] * 1.2
     del y
 
     print("Class Weights")
@@ -140,69 +142,67 @@ def main():
         """----------------------------------------------------------------------------------------------------------------------------
         * Train on all the training sets iteratively, see the data three times per training inex
         """
-        for p in range(3):
-            for train_idx in range(5):
+        for train_idx in range(5):
 
-                if test_idx == train_idx:
-                    # this is our test set => move on
-                    continue
-                clf.n_estimators += 1000
+            if test_idx == train_idx:
+                # this is our test set => move on
+                continue
+            clf.n_estimators += 10000
 
-                X_train = np.load(f'{root_path}/{train_idx}-data.npy')
-                y_train = np.load(f'{root_path}/{train_idx}-label.npy')
-                X_train = X_train.reshape(X_train.shape[1] * X_train.shape[2], X_train.shape[0])
-                y_train = y_train.ravel()
-                # y_train = keras.utils.to_categorical(y_train, num_classes=len(target) + 1)
+            X_train = np.load(f'{root_path}/{train_idx}-data.npy')
+            y_train = np.load(f'{root_path}/{train_idx}-label.npy')
+            X_train = X_train.reshape(X_train.shape[1] * X_train.shape[2], X_train.shape[0])
+            y_train = y_train.ravel()
+            # y_train = keras.utils.to_categorical(y_train, num_classes=len(target) + 1)
 
-                print("Pass #", p)
-                print("Training Index", train_idx)
-                print("\tX_train shape", X_train.shape)
-                print("\ty_train shape", y_train.shape)
-                vals, counts = np.unique(y_train, return_counts=True)
-                for x in zip(vals, counts):
-                    print(x)
+            print("Training Index", train_idx)
+            print("\tX_train shape", X_train.shape)
+            print("\ty_train shape", y_train.shape)
+            vals, counts = np.unique(y_train, return_counts=True)
+            for x in zip(vals, counts):
+                print(x)
 
-                start_fit = time.time()
+            start_fit = time.time()
 
-                clf.fit(X_train, y_train)
+            clf.fit(X_train, y_train)
 
-                end_fit = time.time()
-                fit_time = round(end_fit - start_fit, 2)
+            end_fit = time.time()
+            fit_time = round(end_fit - start_fit, 2)
 
-                processing_time['fit'].append(fit_time)
-                pred = clf.predict(X_test)
+            processing_time['fit'].append(fit_time)
+            pred = clf.predict(X_test)
 
-                confmatTest = confusion_matrix(
-                    y_true=y_test, y_pred=pred)
-                score = clf.score(X_test, y_test)
+            confmatTest = confusion_matrix(
+                y_true=y_test, y_pred=pred)
+            score = clf.score(X_test, y_test)
 
-                plt.title('Prediction')
-                plt.imshow(pred.reshape(rows, cols) / 255, cmap='gray')
+            plt.title('Prediction')
+            plt.imshow(pred.reshape(rows, cols) / 255, cmap='gray')
 
-                plt.savefig(f'{path}/{p}_{train_idx}-prediction')
-                plt.close()
-                print(f'+w {path}/{p}_{train_idx}-prediction')
+            plt.savefig(f'{path}/{train_idx}-prediction')
+            plt.close()
+            print(f'+w {path}/{train_idx}-prediction')
 
-                plt.title("Test Confusion Matrix")
-                plt.matshow(confmatTest, cmap=plt.cm.Blues, alpha=0.5)
-                plt.gcf().subplots_adjust(left=.5)
-                for i in range(confmatTest.shape[0]):
-                    for j in range(confmatTest.shape[1]):
-                        plt.text(x=j, y=i,
-                                s=round(confmatTest[i,j],3), fontsize=6, horizontalalignment='center')
-                plt.xticks(np.arange(10), labels=classes)
-                plt.yticks(np.arange(10), labels=classes)
-                plt.tick_params('both', labelsize=8, labelrotation=45)
-                plt.xlabel('predicted label')
-                plt.ylabel('reference label', rotation=90)
-                plt.savefig(f'{path}/{p}_{train_idx}-test_confusion_matrix')
-                print(f'+w {path}/{train_idx}-test_confusion_matrix')
-                plt.close()
-                with open(os.path.join(path, "results.txt"), "w") as f:
-                    f.write("Score: " + str(score))
-                    f.write("\nProcessing Times:")
-                    f.write(json.dumps(processing_time, indent=4, separators=(',', ': ')))
-                    f.write("\nOob Score: " + str(clf.oob_score_))
+            plt.title("Test Confusion Matrix")
+            plt.matshow(confmatTest, cmap=plt.cm.Blues, alpha=0.5)
+            plt.gcf().subplots_adjust(left=.5)
+            for i in range(confmatTest.shape[0]):
+                for j in range(confmatTest.shape[1]):
+                    plt.text(x=j, y=i,
+                            s=round(confmatTest[i,j],3), fontsize=6, horizontalalignment='center')
+            plt.xticks(np.arange(10), labels=classes)
+            plt.yticks(np.arange(10), labels=classes)
+            plt.tick_params('both', labelsize=8, labelrotation=45)
+            plt.xlabel('predicted label')
+            plt.ylabel('reference label', rotation=90)
+            plt.savefig(f'{path}/{train_idx}-test_confusion_matrix')
+            print(f'+w {path}/{train_idx}-test_confusion_matrix')
+            plt.close()
+            with open(os.path.join(path, "results.txt"), "w") as f:
+                f.write("Score: " + str(score))
+                f.write("\nProcessing Times:")
+                f.write(json.dumps(processing_time, indent=4, separators=(',', ': ')))
+                f.write("\nOob Score: " + str(clf.oob_score_))
 
 
 
