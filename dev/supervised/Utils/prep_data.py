@@ -23,7 +23,10 @@ def mkdir(path):
 def create_sub_images(X, y, rows, cols):
     # TODO: Be nice to automate this.. need some type of LCD function ...
     # not sure how to automate this yet but I know that these dims will create 10 sub images
+<<<<<<< HEAD:dev/supervised/Utils/helpme.py
     sub_cols = cols
+=======
+>>>>>>> dev:dev/supervised/Utils/prep_data.py
     sub_rows = rows//5
     # shape of the sub images [sub_cols, sub_rows, bands]
 
@@ -47,11 +50,21 @@ def create_sub_images(X, y, rows, cols):
         # represents the left and right side of the image split down the middle
         img = X[:,
                 sub_rows * row: sub_rows * (row + 1),
+<<<<<<< HEAD:dev/supervised/Utils/helpme.py
                 sub_cols * 0: sub_cols]
 
         label = y[sub_rows * row: sub_rows * (row + 1),
                 sub_cols * 0: sub_cols]
 
+=======
+                :]
+
+        label = y[sub_rows * row: sub_rows * (row + 1),
+                :]
+
+        plt.imshow(label)
+        plt.show()
+>>>>>>> dev:dev/supervised/Utils/prep_data.py
         subimages.append(img)
         sublabels.append(label)
         index += 1
@@ -183,8 +196,10 @@ def oversample(X, y, n_classes=10, extra_samples=0):
         y_ = y[indices]
 
         while y_.shape[0] < maxval:
-            if y_.shape[0] == 0: # there was no label 
+            if y_.shape[0] == 0: # there was no label
                 print(f'Warning, no values found for class {idx}')
+                X_ = np.empty(X_.shape)
+                y_ = np.empty(y_.shape)
                 break
             if y_.shape[0] < maxval//2: # if we are less than halfway to maxval, exponential
                 X_ = np.concatenate([X_, X_], axis=1)
@@ -199,6 +214,8 @@ def oversample(X, y, n_classes=10, extra_samples=0):
     print("X_os shape", X_out.shape)
     print("y_os shape", y_out.shape)
 
+    del X_
+    del y_
     return X_out, y_out
 
 
@@ -209,7 +226,7 @@ def create_paths(root):
     # the assumed dirs
     raw_data = os.path.join(root, "data_img")
     raw_labels = os.path.join(root, "data_bcgw")
-    
+
     # our new prepared data root
     prep_dir = os.path.join(root, 'prepared') # consider this the root
 

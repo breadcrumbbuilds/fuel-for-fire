@@ -1,6 +1,7 @@
 from sklearn.ensemble import RandomForestClassifier
-
+import keras
 from sklearn.model_selection import train_test_split
+from sklearn.utils.class_weight import compute_class_weight
 from sklearn.preprocessing import OneHotEncoder
 from sklearn.metrics import confusion_matrix
 from matplotlib.patches import Rectangle
@@ -17,7 +18,24 @@ sys.path.append(
 from Utils.Misc import read_binary
 from Utils.Helper import *
 
-root_path = "data/full/"
+"""----------------------------------------------------------------------------------------------------------------------------
+* Train KFolded Random Forest and output figures to describe the RF's performance
+*
+* Dependencies:
+*       1. Ensure the root of the project contains the following folder structure
+*       data
+*           full
+*               data_bcgw
+*                   <Nine class labels of the large image size - naming convention following the 'target' dictionary in this script>
+*               data_img
+*                   <Binary of the large image>
+*       2. Run helpme.py from the root of the project
+*       3. Set your parameters within this script
+"""
+
+
+
+root_path = "data/full/prepared/train/cropped"
 reference_data_root = f"{root_path}data_bcgw/"
 raw_data_root = f"{root_path}data_img/"
 
@@ -25,19 +43,7 @@ def main():
     """----------------------------------------------------------------------------------------------------------------------------
     * Configuration
     """
-    # the available configuralbe params for SKlearn
-    params = {
-        'n_estimators': 100,
-        'max_features': 0.3,
-        'max_depth': 20,
-        'verbose': 1,
-        'n_jobs': -1,
-        # 'bootstrap': False,
-        'oob_score': True,
-        'warm_start': True
-        # 'class_weight': 'balanced_subsample'
-    }
-    # used to onehot encode all of the classes if need be
+
 
     target = {
         "conifer" : "CONIFER.bin",
@@ -46,16 +52,42 @@ def main():
         "broadleaf" : "BROADLEAF.bin",
         "shrub" : "SHRUB.bin",
         "mixed" : "MIXED.bin",
-        "herb" : "HERB.bin",
         "exposed" : "EXPOSED.bin",
+        "herb" : "HERB.bin",
         "river" : "Rivers.bin",
         # "road" : "ROADS.bin",
         # "vri" : "vri_s3_objid2.tif_proj.bin",
     }
-    classes = ["unlabelled"]
+    classes = ['unlabelled']
     keys = list(target.keys())
     for key in keys:
         classes.append(key)
+    y = np.load("data/full/prepared/train/full-label.npy").ravel()
+    class_weights = dict(np.ndenumerate(compute_class_weight('balanced', np.unique(y), y))) # create a dict of class weights
+    class_weights[0,] = 0.0 # override the compute class weights and set the unlabelled class to zero weight
+    class_weights[1,] =class_weights[1,] * 1.2
+    class_weights[2,] = class_weights[2,] * 1.2
+    del y
+
+    print("Class Weights")
+    for c in class_weights:
+        print(c,class_weights[c])
+    print()
+    # the available configuralbe params for SKlearn
+    params = {
+                'n_estimators': 0,
+                'max_features': 0.1,
+                'max_depth': 5,
+                'verbose': 1,
+                'n_jobs': -1,
+                # 'bootstrap': False,
+                'oob_score': True,
+                'warm_start': True,
+                'class_weight': class_weights
+                }
+    # used to onehot encode all of the classes if need be
+
+
     outdir = os.path.join(os.curdir,'outs')
     if not os.path.exists(outdir):
         os.mkdir(outdir)
@@ -71,16 +103,11 @@ def main():
     traindir = os.path.join(root_path, "oversample")
 
 
-    spatial = np.load(f'{testdir}/full.npy')
-
-    print(spatial.shape)
-
-
     """----------------------------------------------------------------------------------------------------------------------------
     * KFold Training
     """
-    for test_idx in range(10):
-
+    for test_idx in range(5):
+        clf = RandomForestClassifier(**params)
 
         path = os.path.join(outdir, f"fold_{test_idx}")
         if not os.path.exists(path):
@@ -88,68 +115,52 @@ def main():
 
 
         processing_time = {'fit': [], 'predict': []}
-        X = spatial.reshape((spatial.shape[0],spatial.shape[2] * spatial.shape[1],spatial.shape[3]))
-        X = X[test_idx,:,:]
+        X_test = np.load(f'{root_path}/{test_idx}-data.npy')
+        y_test = np.load(f'{root_path}/{test_idx}-label.npy')
+        print(X_test.shape)
 
-        X_test = X[:,:11]
-        y_test = X[:,11]
-
-
+        rows, cols = y_test.shape
 
         plt.title('Reference')
-        plt.imshow(y_test.reshape(spatial.shape[2], spatial.shape[1]), cmap='gray')
+        plt.imshow(y_test, cmap='gray')
         plt.savefig(f'{path}/{test_idx}-reference')
         plt.close()
         print(f'+w {path}/{test_idx}-reference')
 
+        X_test = X_test.reshape(X_test.shape[1] * X_test.shape[2], X_test.shape[0])
+        y_test = y_test.ravel()
+        # y_test = keras.utils.to_categorical(y_test, num_classes=len(target)+1)
+
+
         print("Test Index", test_idx)
         print("X_test shape", X_test.shape)
         print("y_test shape", y_test.shape)
+        vals, counts = np.unique(y_test, return_counts=True)
+        for v in zip(vals, counts):
+            print(v)
 
-        # Initialize a new random forest
-        print(X.shape)
-        iter_ = 2000
         """----------------------------------------------------------------------------------------------------------------------------
-        * Train on all the training sets iteratively
+        * Train on all the training sets iteratively, see the data three times per training inex
         """
-        for train_idx in range(10):
+        for train_idx in range(5):
+
             if test_idx == train_idx:
                 # this is our test set => move on
                 continue
+            clf.n_estimators += 10000
 
-            # If this is a new K, start a new model (Warm start set to false)
-            if iter_ == 0:
-                params = {
-                'n_estimators': iter_ ,
-                'max_features': 0.3,
-                'max_depth': 5,
-                'verbose': 1,
-                'n_jobs': -1,
-                # 'bootstrap': False,
-                'oob_score': True,
-                'warm_start': False
-                }
-            else:
-                params = {
-                'n_estimators': iter_ ,
-                'max_features': 0.3,
-                'max_depth': 5,
-                'verbose': 1,
-                'n_jobs': -1,
-                # 'bootstrap': False,
-                'oob_score': True,
-                'warm_start': True
-                }
+            X_train = np.load(f'{root_path}/{train_idx}-data.npy')
+            y_train = np.load(f'{root_path}/{train_idx}-label.npy')
+            X_train = X_train.reshape(X_train.shape[1] * X_train.shape[2], X_train.shape[0])
+            y_train = y_train.ravel()
+            # y_train = keras.utils.to_categorical(y_train, num_classes=len(target) + 1)
 
-
-            clf = RandomForestClassifier(**params,)
-
-
-            X_train = np.load(f'{traindir}/{train_idx}_data.npy')
-            y_train = np.load(f'{traindir}/{train_idx}_label.npy')
             print("Training Index", train_idx)
             print("\tX_train shape", X_train.shape)
             print("\ty_train shape", y_train.shape)
+            vals, counts = np.unique(y_train, return_counts=True)
+            for x in zip(vals, counts):
+                print(x)
 
             start_fit = time.time()
 
@@ -160,13 +171,14 @@ def main():
 
             processing_time['fit'].append(fit_time)
             pred = clf.predict(X_test)
-            print(pred)
+
             confmatTest = confusion_matrix(
-                 y_true=y_test, y_pred=pred)
+                y_true=y_test, y_pred=pred)
             score = clf.score(X_test, y_test)
 
             plt.title('Prediction')
-            plt.imshow(pred.reshape(spatial.shape[2], spatial.shape[1]) / 255, cmap='gray')
+            plt.imshow(pred.reshape(rows, cols) / 255, cmap='gray')
+
             plt.savefig(f'{path}/{train_idx}-prediction')
             plt.close()
             print(f'+w {path}/{train_idx}-prediction')
@@ -186,13 +198,12 @@ def main():
             plt.savefig(f'{path}/{train_idx}-test_confusion_matrix')
             print(f'+w {path}/{train_idx}-test_confusion_matrix')
             plt.close()
-            with open(path + "results.txt", "w") as f:
+            with open(os.path.join(path, "results.txt"), "w") as f:
                 f.write("Score: " + str(score))
                 f.write("\nProcessing Times:")
                 f.write(json.dumps(processing_time, indent=4, separators=(',', ': ')))
                 f.write("\nOob Score: " + str(clf.oob_score_))
 
-            iter_ += 1000
 
 
         start_pred = time.time()
@@ -209,7 +220,7 @@ def main():
         score = clf.score(X_test, y_test)
 
         plt.title('Prediction')
-        plt.imshow(pred.reshape(spatial.shape[1], spatial.shape[0]), cmap='gray')
+        plt.imshow(pred.reshape(rows, cols), cmap='gray')
         plt.savefig(f'{path}/final-prediction')
         print(f'+w {path}/f    binal-prediction')
         plt.close()
@@ -233,7 +244,6 @@ def main():
         with open(path + "/results.txt", "w") as f:
                 f.write("Score: " + str(score))
                 f.write("\nProcessing Times:")
-
                 f.write(json.dumps(processing_time, indent=4, separators=(',', ': ')))
                 f.write("\nOob Score: " + str(clf.oob_score_))
                 f.write("\nFeature Importance: " + str(clf.feature_importances_))
