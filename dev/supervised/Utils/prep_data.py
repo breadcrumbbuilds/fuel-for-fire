@@ -47,10 +47,10 @@ def create_sub_images(X, y, rows, cols):
         # represents the left and right side of the image split down the middle
         img = X[:,
                 sub_rows * row: sub_rows * (row + 1),
-                sub_cols * 0: sub_cols]
+                0: sub_cols]
 
         label = y[sub_rows * row: sub_rows * (row + 1),
-                sub_cols * 0: sub_cols]
+                0: sub_cols]
 
         subimages.append(img)
         sublabels.append(label)

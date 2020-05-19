@@ -68,7 +68,7 @@ def main():
         y_test = np.load(f'{datadir}/{test_idx}-label.npy')
         preserve_shape = X_test.shape
         print(preserve_shape)
-        # Save the image as output for reference 
+        # Save the image as output for reference
         plt.title('Reference')
         plt.imshow(y_test, cmap='gray')
         plt.savefig(f'{path}/{test_idx}-reference')
@@ -127,14 +127,13 @@ def main():
 
             vals, counts = np.unique(y, return_counts=True)
             min_samples = np.min(counts)
-            
+
             # loop through each class and get a subset of size min sample and store in X_train and y_train
 
 
             start_fit = time.time()
             for x in range(10):
-                X_train = np.empty((min_samples * len(vals), 11))
-                y_train = np.empty(min_samples * len(vals))
+                initialized = False
                 for idx in range(len(vals)):
                     if idx == 0:
                         continue
@@ -142,22 +141,34 @@ def main():
                 # need a subset of indices, then index the original X_train and y_train
                 # and fit those
                     rand = np.random.choice(indices[0], min_samples)
-                    np.concatenate((X[rand], X_train))
-                    np.concatenate((y[rand], y_train))
+                    # if it's the first pass, initialize
+                    if not initialized:
+                        X_train = X[rand]
+                        y_train = y[rand]
+                        initialized = True
+                    else:
+                        X_train = np.concatenate((X[rand], X_train))
+                        y_train = np.concatenate((y[rand], y_train))
+
+                # need to shuffle the data
+                idx = np.arange(y_train.shape[0])
+                np.random.shuffle(idx)
+                X_train = X_train[idx]
+                y_train = y_train[idx]
 
                 print(X_train.shape)
                 print("Training Index", train_idx)
                 print(f'fit #{x}')
                 print("\tX_train shape", X_train.shape)
                 print("\ty_train shape", y_train.shape)
-            
+
                 clf.fit(X_train, y_train)
                 clf.n_estimators += 2500
 
             end_fit = time.time()
             fit_time = round(end_fit - start_fit, 2)
             processing_time['fit'].append(fit_time)
-            
+
             pred = clf.predict(X_test)
             print(pred)
             confmatTest = confusion_matrix(
