@@ -23,10 +23,7 @@ def mkdir(path):
 def create_sub_images(X, y, rows, cols):
     # TODO: Be nice to automate this.. need some type of LCD function ...
     # not sure how to automate this yet but I know that these dims will create 10 sub images
-<<<<<<< HEAD:dev/supervised/Utils/helpme.py
     sub_cols = cols
-=======
->>>>>>> dev:dev/supervised/Utils/prep_data.py
     sub_rows = rows//5
     # shape of the sub images [sub_cols, sub_rows, bands]
 
@@ -50,21 +47,11 @@ def create_sub_images(X, y, rows, cols):
         # represents the left and right side of the image split down the middle
         img = X[:,
                 sub_rows * row: sub_rows * (row + 1),
-<<<<<<< HEAD:dev/supervised/Utils/helpme.py
                 sub_cols * 0: sub_cols]
 
         label = y[sub_rows * row: sub_rows * (row + 1),
                 sub_cols * 0: sub_cols]
 
-=======
-                :]
-
-        label = y[sub_rows * row: sub_rows * (row + 1),
-                :]
-
-        plt.imshow(label)
-        plt.show()
->>>>>>> dev:dev/supervised/Utils/prep_data.py
         subimages.append(img)
         sublabels.append(label)
         index += 1
