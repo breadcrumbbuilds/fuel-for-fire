@@ -23,6 +23,7 @@ sys.path.append(
     os.path.abspath(os.path.join(os.path.dirname(__file__), os.path.pardir)))
 from Utils.Misc import read_binary
 from Utils.Helper import rescale, create_batch_generator
+
 # TO VIEW MODEL PERFORMANCE IN BROWSER RUN
 #
 # FROM ROOT DIR
@@ -113,12 +114,17 @@ def main():
         "broadleaf" : "BROADLEAF.bin",
         "shrub" : "SHRUB.bin",
         "mixed" : "MIXED.bin",
-        "herb" : "HERB.bin",
         "exposed" : "EXPOSED.bin",
+        "herb" : "HERB.bin",
         "river" : "Rivers.bin",
         # "road" : "ROADS.bin",
         # "vri" : "vri_s3_objid2.tif_proj.bin",
     }
+
+    labels = ['unlabelled']
+
+    for l in target.keys():
+        labels.append(l)
 
     METRICS = [
       # keras.metrics.CategoricalAccuracy(name='cat_acc'),
@@ -137,145 +143,106 @@ def main():
     """----------------------------------------------------------------------------------------------------------------------------
     * Initial Load
     """
-    data_path = os.path.join(root_path, 'subsampled')
-
-    if not os.path.exists(f'{root_path}/subsampled'):
-        os.mkdir(f'{root_path}/subsampled')
-
-    cols, rows, bands, X = read_binary(
-        f'{raw_data_root}S2A.bin', to_string=False)
-    X = X.reshape(rows * cols, bands)
-
-    # X = StandardScaler().fit_transform(X)  # standardize unit variance and 0 mean
-    onehot = encode_one_hot(target, cols, rows, array=True)
-    tmp = np.zeros((X.shape[0], X.shape[1] + 1))
-    tmp[:, :X.shape[1]] = X
-    tmp[:, X.shape[1]] = onehot
-    # make sure the input is spatially sound
-    tmp = tmp.reshape((bands + 1, rows * cols))
-    print(tmp)
-    subbed = create_sub_images(tmp, cols, rows, bands+1)
-    print(f"+w {data_path}/full.npy" )
-    np.save(f'{data_path}/full', subbed)
 
 
 
-    # n_classes = len(target) + 1
-    # rand_seed = 123 # reproducability
-    # np.random.seed(rand_seed)
-    # tf.random.set_seed(rand_seed)
 
-    # """----------------------------------------------------------------------------------------------------------------------------
-    # * Output Directories
-    # """
-    # if not os.path.exists('outs'):
-    #     print('creating outs directory in root')
-    #     os.mkdir('outs')
-    # if not os.path.exists('outs/NaiveDeepNet/'):
-    #     print('creating outs/NaiveDeepNet in root')
-    #     os.mkdir('outs/NaiveDeepNet/')
-    # outdir = get_run_logdir('outs/NaiveDeepNet/')
-    # if not os.path.exists(outdir):
-    #     os.mkdir(outdir)
-    # model_dir = f'{outdir}/models'
-    # os.mkdir(model_dir)
+    n_classes = len(target) + 1
+    rand_seed = 123 # reproducability
+    np.random.seed(rand_seed)
+    tf.random.set_seed(rand_seed)
 
-
-    # """----------------------------------------------------------------------------------------------------------------------------
-    # * Callbacks
-    # """
-    # root_logdir = os.path.join(os.curdir, "logs")
-    # run_logdir = get_run_logdir(root_logdir)
-    # tensorboard_cb = keras.callbacks.TensorBoard(run_logdir)
-    # model_filepath = os.path.join(model_dir, "weights-improvement-{epoch:02d}-{val_loss:04d}.hdf5")
-    # tensorboard_cb = keras.callbacks.TensorBoard(run_logdir)
-    # modelsave_cb = keras.callbacks.ModelCheckpoint(model_filepath, monitor='cat_acc', verbose=0, save_best_only=True, save_weights_only=False, mode='auto', save_freq=1)
-    # es_cb = keras.callbacks.EarlyStopping(monitor='val_loss',
-    #                                         min_delta=0,
-    #                                         patience=10,
-    #                                         verbose=0,
-    #                                         mode='auto',
-    #                                         baseline=None,
-    #                                         restore_best_weights=True)
-    # callbacks = [tensorboard_cb, es_cb]
+    """----------------------------------------------------------------------------------------------------------------------------
+    * Output Directories
+    """
+    if not os.path.exists('outs'):
+        print('creating outs directory in root')
+        os.mkdir('outs')
+    if not os.path.exists('outs/NaiveDeepNet/'):
+        print('creating outs/NaiveDeepNet in root')
+        os.mkdir('outs/NaiveDeepNet/')
+    outdir = get_run_logdir('outs/NaiveDeepNet/')
+    if not os.path.exists(outdir):
+        os.mkdir(outdir)
+    model_dir = f'{outdir}/models'
+    os.mkdir(model_dir)
 
 
-    # """----------------------------------------------------------------------------------------------------------------------------
-    # * Model
-    # """
-    # model = create_model(subbed.shape[3] - 1, len(target)+1)
-
-    # optimizer = keras.optimizers.Nadam(learning_rate=lr, beta_1=0.9, beta_2=0.999)
-
-
-    # model.compile(optimizer=optimizer,
-    #             loss='categorical_crossentropy',
-    #             metrics=METRICS)
-
-
-    # """-----------------------------------------------------------
-    # * Cross Val
-    # """
-
-    # X_val = subbed[6:8,:,:,:11]
-    # y_val = subbed[6:8,:,:,11]
-    # X_test = subbed[8:10,:,:,:11]
-    # y_test = subbed[8:10,:,:,11]
-
-    # X_val = X_val.reshape(X_val.shape[0] * X_val.shape[1] * X_val.shape[2], X_val.shape[3])
-    # y_val = y_val.ravel()
-    # X_test = X_test.reshape(X_test.shape[0] * X_test.shape[1] * X_test.shape[2], X_test.shape[3])
-    # y_test = y_test.ravel()
-
-    # del subbed
-    # y_test = keras.utils.to_categorical(y_test, num_classes=len(target) + 1)
-    # y_val = keras.utils.to_categorical(y_val, num_classes=len(target) + 1)
-
-    # data_path = os.path.join(root_path, 'oversample')
-    # if not os.path.exists(data_path):
-    #     os.mkdir(f'{root_path}/oversample')
-
-    # for epoch in range(epochs):
-    #     print(f"Epoch {epoch}/{epochs}")
-    #     for idx in range(5):
+    """----------------------------------------------------------------------------------------------------------------------------
+    * Callbacks
+    """
+    root_logdir = os.path.join(os.curdir, "logs")
+    run_logdir = get_run_logdir(root_logdir)
+    tensorboard_cb = keras.callbacks.TensorBoard(run_logdir)
+    model_filepath = os.path.join(model_dir, "weights-improvement-{epoch:02d}-{val_loss:04d}.hdf5")
+    tensorboard_cb = keras.callbacks.TensorBoard(run_logdir)
+    modelsave_cb = keras.callbacks.ModelCheckpoint(model_filepath, monitor='cat_acc', verbose=0, save_best_only=True, save_weights_only=False, mode='auto', save_freq=1)
+    es_cb = keras.callbacks.EarlyStopping(monitor='val_loss',
+                                            min_delta=0,
+                                            patience=10,
+                                            verbose=0,
+                                            mode='auto',
+                                            baseline=None,
+                                            restore_best_weights=True)
+    callbacks = [tensorboard_cb, es_cb]
 
 
-    #         if os.path.exists(f'{data_path}/{idx}_data.npy'):
-    #             X_train = np.load(f'{data_path}/{idx}_data.npy')
-    #             y_train = np.load(f'{data_path}/{idx}_label.npy')
-    #         else:
+    """----------------------------------------------------------------------------------------------------------------------------
+    * Model
+    """
+    model = create_model(11, len(target)+1)
 
-    #             np.save(f'{data_path}/{idx}_data', X_train)
-    #             np.save(f'{data_path}/{idx}_label', y_train)
+    optimizer = keras.optimizers.Nadam(learning_rate=lr, beta_1=0.9, beta_2=0.999)
 
-    #         print("X_train shape: ", X_train.shape)
-    #         print("X_test shape: ", X_test.shape)
-    #         print("X_val shape: ", X_val.shape)
 
-    #         _ = np.histogram(y_train, bins=len(target) + 1)
-    #         print(_[0])
+    model.compile(optimizer=optimizer,
+                loss='categorical_crossentropy',
+                metrics=METRICS)
 
-    #         y_train = keras.utils.to_categorical(y_train, num_classes=len(target) + 1)
 
-    #         n_features = X_train.shape[1]
+    """-----------------------------------------------------------
+    * Cross Val
+    """
+    for idx in range(5):
 
-    #         """----------------------------------------------------------------------------------------------------------------------------
-    #         * Training
-    #         """
-    #         start_fit = time.time()
+        # Create generators
+        params = {'dim': (32,11),
+          'batch_size': 32,
+          'n_classes': 10,
+          'n_channels': 11,
+          'shuffle': True
+        }
 
-    #         history = model.fit(X_train, y_train,
-    #                             batch_size=batch_size,
-    #                             epochs=3,
-    #                             verbose=1,
-    #                             validation_split=0.0,
-    #                             validation_data=(X_val, y_val),
-    #                             shuffle=True,
-    #                             use_multiprocessing=True,
-    #                             workers=-1,
-    #                             callbacks=callbacks)
+        partition = {
+        'train' : [f'oversampled/{i}' for i in range(5) if i != idx],
+        'validation' : [idx]
+        }
+        print(partition)
 
-    #         end_fit = time.time()
+        training_generator = DataGenerator(partition['train'], labels, **params)
+        validation_generator = DataGenerator(partition['validation'], labels, **params)
+        for t in training_generator:
+            print(t)
+
+
+        n_features = 11
+
+        """----------------------------------------------------------------------------------------------------------------------------
+        * Training
+        """
+        start_fit = time.time()
+
+        history = model.fit_generator(generator=training_generator,
+                            validation_data=validation_generator,
+                            epochs=3,
+                            verbose=1,
+                            shuffle=True,
+                            use_multiprocessing=True,
+                            workers=-1,
+
+                            callbacks=callbacks)
+
+        end_fit = time.time()
 
     #         """----------------------------------------------------------------------------------------------------------------------------
     #         * Training
@@ -514,169 +481,55 @@ def get_run_logdir(root_logdir):
     return os.path.join(root_logdir, run_id)
 
 
-def one_hot_sanity_check(target, xs, xl):
-    oh = encode_one_hot(target, xs, xl)
-    for idx, val in enumerate(oh):
-        print(val[0])
-        plt.title(val[0])
-        plt.imshow(val[1].reshape(xl, xs), cmap='gray')
-        plt.show()
+class DataGenerator(keras.utils.Sequence):
 
 
-def create_sub_images(X, cols, rows, bands):
-    # TODO: Be nice to automate this.. need some type of LCD function ...
-    # not sure how to automate this yet but I know that these dims will create 10 sub images
-    sub_cols = cols//2
-    sub_rows = rows//5
-    # shape of the sub images [sub_cols, sub_rows, bands]
-    print("New subimage shape (%s, %s, %s)" % (sub_cols, sub_rows, bands))
-
-    # container for the sub images
-    sub_images = np.zeros((10, sub_cols, sub_rows, bands))
-
-    # this will grab a sub set of the original image beginning with the top left corner, then the right top corner
-    # and iteratively move down the image from left to right
-
-    """
-    Original image         subimages
-    --------                --------
-    |      |                [  ][  ]
-    |      |                [  ][  ]
-    |      |                [  ][  ]
-    |      |                [  ][  ]
-    |      |                [  ][  ]
-    --------                --------
-    """
-    index = 0  # to index the container above for storing each sub image
-    for row in range(5):  # represents the 5 'rows' of this image
-        # represents the left and right side of the image split down the middle
-        for col in range(2):
-            sub_images[index, :, :, :] = X[sub_cols * col: sub_cols *
-                                           (col + 1), sub_rows * row: sub_rows * (row + 1), :]
-            index += 1
-
-    print("images, width, height, features", sub_images.shape)
-    return sub_images
+    def __init__(self, list_IDs, labels, batch_size=32, dim=(32, 1, 11), n_channels=11, n_classes=10, shuffle=True):
+        'Initialization'
+        self.dim = dim
+        self.batch_size = batch_size
+        self.labels = labels
+        self.list_IDs = list_IDs
+        self.n_channels = n_channels
+        self.n_classes = n_classes
+        self.shuffle = shuffle
+        self.on_epoch_end()
 
 
-def oversample(X_train, y_train, n_classes=10, extra_samples=50000):
-
-    tmp = np.zeros((X_train.shape[0], X_train.shape[1] + 1))
-
-    tmp[:, :X_train.shape[1]] = X_train
-    tmp[:, X_train.shape[1]] = y_train
-
-    # Let's oversample each class so we don't have class imbalance
-    vals, counts = np.unique(tmp[:, X_train.shape[1]], return_counts=True)
-    maxval = np.amax(counts) + extra_samples
-
-    print(f"Sampling all classes to {maxval}")
-    is_max = True
-    for idx in range(n_classes):
-        if(idx == 0):
-            # ignore these, they aren't labeled values
-            continue
-
-        # return the true values of a class
-        idx_class_vals_outside_while = tmp[tmp[:, X_train.shape[1]] == idx]
-        print(f"Before Oversample: {idx_class_vals_outside_while.shape[0]} {list(target)[idx-1]} pixels")
-
-        # oversample until we have n samples
-        while(tmp[tmp[:, X_train.shape[1]] == idx].shape[0] < maxval): # while the total true values is less than maxval
-            is_max = False
-            # this grows exponentially
-            idx_class_vals_inside_while = tmp[tmp[:, X_train.shape[1]] == idx] # copy all the true vals to the variable
-            if idx_class_vals_inside_while.shape[0] > maxval//2: # if we are passed half way to maxval
-
-                sample = idx_class_vals_outside_while[:maxval - idx_class_vals_inside_while.shape[0],:] # get a random sample of how many more samples we need
-                tmp = np.concatenate(
-                    (tmp, sample), axis=0)
-            else: # else we can safely double the pixels up without having more samples than maxval
-                tmp = np.concatenate(
-                    (tmp, idx_class_vals_inside_while), axis=0)
-        np.random.shuffle(tmp)
+    def __len__(self):
+        return int(np.floor(len(self.list_IDs) / self.batch_size))
 
 
-    X_train = tmp[:, :X_train.shape[1]]
-    y_train = tmp[:, X_train.shape[1]]
+    def __getitem__(self, index):
+        indices = self.indexes[index*self.batch_size:(index+1)*self.batch_size]
 
-    return X_train, y_train
+        list_IDs_temp = [self.list_IDs[k] for k in indices]
 
+        X, y = self.__data_generation(list_IDs_temp)
 
-def encode_one_hot(target, xs, xl, array=True):
-    """encodes the provided dict into a dense numpy array
-    of class values.
-
-    Caveats: The result of this encoding is dependant and naive, in that
-    any conflicts of pixel labels are not intelligently resolved. For our
-    purposes, at least until now, we don't care. If an instance belongs
-    to multiple classes, that instance will be considered a member of
-    the last class it encounters, ie, the target that comes latest
-    in the dictionary
-    """
-    if array:
-        result = np.zeros((xs*xl, len(target)))
-    else:
-        result = list()
-
-    result = np.zeros((xl * xs))
-    reslist = []
-    for idx, key in enumerate(target.keys()):
-        ones = np.ones((xl * xs))
-        s, l, b, tmp = read_binary(f"{reference_data_root}/%s" % target[key])
-
-        # same shape as the raw image
-        assert int(s) == int(xs)
-        assert int(l) == int(xl)
-
-        # last index is the targets false value
-        vals = np.sort(np.unique(tmp))
-
-        # create an array populate with the false value
-        t = ones * vals[len(vals) - 1]
-
-        if key == 'water':
-            arr = np.not_equal(tmp, t)
-        else:
-            arr = np.logical_and(tmp, t)
-        # at this stage we have an array that has
-        # ones where the class exists
-        # and zeoes where it doesn't
-        _, c = np.unique(arr, return_counts=True)
-        reslist.append(c)
-        result[arr > 0] = idx+1
-
-    return result
+        yield X, y
 
 
-def build_vis(prediction, y, shape):
+    def on_epoch_end(self):
+        'Update indexes after each epoch'
+        self.indexes = np.arange(len(self.list_IDs))
+        if self.shuffle:
+            np.random.shuffle(self.indexes)
 
-    visualization = np.zeros((len(y), 3))
-    for idx, pixel in enumerate(zip(prediction, y)):
 
-        # compare the prediciton to the original
-        if pixel[0] and pixel[1]:
-                # True Positive
-            visualization[idx, ] = [0, 1, 0]
+    def __data_generation(self, list_IDs_temp):
+        'Generate data containing batch_size samples'
+        # Init
+        X = np.empty((self.batch_size, *self.dim, self.n_channels))
+        y = np.empty((self.batch_size), dtype=int)
 
-        elif pixel[0] and not pixel[1]:
-            # False Positive
-            visualization[idx, ] = [1, 0, 0]
+        for i, ID in enumerate(list_IDs_temp):
+            X[i,] = np.load(f'data/prepared/train/cropped/{i}-data.npy')
+            y[i] = np.load(f'data/prepared/train/cropped/{i}-label.npy')
+            X[i,] = X[i,].reshape(X[i,].shap[1] * X[i,].shape[2], X[i,].shape[0])
+            y[i] = y[i].ravel()
 
-        elif not pixel[0] and pixel[1]:
-            # False Negative
-            visualization[idx, ] = [1, .5, 0]
-
-        elif not pixel[0] and not pixel[1]:
-            # True Negative
-            visualization[idx, ] = [0, 0, 1]
-            # visualization[idx, ] = rgb
-
-        else:
-            raise Exception("There was a problem comparing the pixel", idx)
-
-    return visualization.reshape(shape)
-
+        return StandardScaler().fit_transform(X), keras.utils.to_categorical(y, num_class=self.n_classes)
 
 
 if __name__ == "__main__":
