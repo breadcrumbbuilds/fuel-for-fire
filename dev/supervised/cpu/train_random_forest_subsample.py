@@ -132,7 +132,7 @@ def main():
 
 
             start_fit = time.time()
-            for x in range(25):
+            for x in range(2):
                 initialized = False
                 for idx in range(len(vals)):
                     if idx == 0:
@@ -176,14 +176,14 @@ def main():
             processing_time['fit'].append(fit_time)
 
             pred = clf.predict(X_test)
-            pred_train = clf.predict(X)
+            pred_train = clf.predict(X_train)
             print(pred)
             confmatTest = confusion_matrix(
                  y_true=y_test, y_pred=pred)
             score = clf.score(X_test, y_test)
 
             confmatTrain = confusion_matrix(
-                y_true=y, y_pred=pred_train)
+                y_true=y_train, y_pred=pred_train)
             score_train = clf.score(X_train, y_train)
 
             plt.title('Prediction')
@@ -244,14 +244,14 @@ def main():
         pred = clf.predict(X_test)
 
         end_pred = time.time()
-        pred_test = clf.predict(X_train_total)
+        pred_train = clf.predict(X_train_total)
 
         predict_time = round(end_pred - start_pred, 2)
         processing_time['predict'].append(predict_time)
 
         confmatTest = confusion_matrix(
                  y_true=y_test, y_pred=pred)
-        confmatTrain = confusion_matrix(y_true=y_train_total, y_pred=pred_test)
+        confmatTrain = confusion_matrix(y_true=y_train_total, y_pred=pred_train)
 
         score = clf.score(X_test, y_test)
         score_train = clf.score(X_train_total, y_train_total)
