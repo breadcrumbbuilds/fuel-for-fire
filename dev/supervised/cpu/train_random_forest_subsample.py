@@ -22,9 +22,12 @@ reference_data_root = f"{root_path}data_bcgw/"
 raw_data_root = f"{root_path}data_img/"
 
 def main():
+
+    ## Two sets of targets, the testing image will have portions
+    ## of the classes that we are not training for
     target = {
         "conifer" : "CONIFER.bin",
-        # "ccut" : "CCUTBL.bin",
+        "ccut" : "CCUTBL.bin",
         "water": "WATER.bin",
         "broadleaf" : "BROADLEAF.bin",
         "shrub" : "SHRUB.bin",
@@ -110,9 +113,9 @@ def main():
 
 
         params = {
-        'n_estimators': 500,
-        'max_features': 0.2,
-        'max_depth': 6,
+        'n_estimators': 250,
+        'max_features': 0.4,
+        'max_depth': 10,
         'verbose': 1,
         'n_jobs': -1,
         # 'bootstrap': False,
@@ -121,14 +124,15 @@ def main():
         }
         clf = RandomForestClassifier(**params,)
         iter_ = 0
+
         """----------------------------------------------------------------------------------------------------------------------------
         * Train on all the training sets iteratively
         """
         for train_idx in range(5):
 
 
-
-
+            if train_idx == test_idx:
+                continue
             X = np.load(f'{datadir}/{train_idx}-data.npy')
             X = X.reshape(X.shape[1] * X.shape[2], X.shape[0])
             y = np.load(f'{datadir}/{train_idx}-label.npy').ravel()
@@ -143,12 +147,12 @@ def main():
 
 
             start_fit = time.time()
-            for x in range(2):
+            for x in range(5):
                 initialized = False
                 for idx in range(len(vals)):
                     # if it's the unlabelled data, move on, don't want to include this in training
-                    if idx == 0 or idx == 2: # ignore ccut
-                        continue
+                    # if idx == 0  or idx == 1 or idx == 2 or idx == 3: # ignore ccut
+                    #     continue
 
                     indices = np.where(y == idx) # gets the samples of this (idx) target
                 # need a subset of indices, then index the original X_train and y_train
@@ -164,6 +168,13 @@ def main():
                         # join this sample onto the sample we currently have
                         X_train = np.concatenate((X[rand], X_train))
                         y_train = np.concatenate((y[rand], y_train))
+
+                        #DEBUG
+                        print(X_train.shape)
+                        print(y_train.shape)
+                        print(np.unique(X_train, return_counts=True))
+                        print(np.unique(y_train, return_counts=True))
+
 
                 # need to shuffle the data
                 idx = np.arange(y_train.shape[0])
@@ -187,148 +198,88 @@ def main():
 
                 clf.fit(X_train, y_train)
                 print(clf.n_estimators)
-                clf.n_estimators = clf.n_estimators + 500
+                clf.n_estimators = clf.n_estimators + 250
                 print(clf.n_estimators)
 
-            # end_fit = time.time()
-            # fit_time = round(end_fit - start_fit, 2)
-            # processing_time['fit'].append(fit_time)
 
-            # pred = clf.predict(X_test)
-            # pred_train = clf.predict(X_train)
-            # pred_train_total = clf.predict(X_train_total)
+        # start_pred = time.time()
 
-            # confmatTest = confusion_matrix(
-            #      y_true=y_test, y_pred=pred)
-            # score = clf.score(X_test, y_test)
+        # pred = clf.predict(X_test)
+
+        # end_pred = time.time()
+
+        # predict_time = round(end_pred - start_pred, 2)
+        # processing_time['predict'].append(predict_time)
 
 
-            # confmatTrain = confusion_matrix(
-            #     y_true=y_train_total, y_pred=pred_train_total)
+        # confmatTest = confusion_matrix(
+        #          y_true=y_test, y_pred=pred)
 
-            # score_train = clf.score(X_train_total, y_train_total)
+        # pred_train = clf.predict(X) # the overall training set, some samples will not have been seen
+        # confmatTrain = confusion_matrix(y_true=y, y_pred=pred_train)
 
-            # plt.title('Prediction')
-            # plt.imshow(pred.reshape(preserve_shape[1], preserve_shape[2] ), cmap='cubehelix')
-            # plt.savefig(f'{path}/{train_idx}-prediction')  end_fit = time.time()
-            # fit_time = round(end_fit - start_fit, 2)
-            # processing_time['fit'].append(fit_time)
-
-            # pred = clf.predict(X_test)
-            # pred_train = clf.predict(X_train)
-            # pred_train_total = clf.predict(X_train_total)
-
-            # confmatTest = confusion_matrix(
-            # plt.close()
-            # print(f'+w {path}/{train_idx}-prediction')
-
-            # plt.title("Test Confusion Matrix")
-            # plt.matshow(confmatTest, cmap=plt.cm.Blues, alpha=0.5)
-            # plt.gcf().subplots_adjust(left=.5)
-            # for i in range(confmatTest.shape[0]):
-            #     for j in range(confmatTest.shape[1]):
-            #         plt.text(x=j, y=i,
-            #                 s=round(confmatTest[i,j],3), fontsize=6, horizontalalignment='center')
-            # plt.xticks(np.arange(10), labels=classes)
-            # plt.yticks(np.arange(10), labels=classes)
-            # plt.tick_params('both', labelsize=8, labelrotation=45)
-            # plt.xlabel('predicted label')
-            # plt.ylabel('reference label', rotation=90)
-            # plt.savefig(f'{path}/{train_idx}-test_confusion_matrix')
-            # print(f'+w {path}/{train_idx}-test_confusion_matrix')
-            # plt.close()
-
-            # plt.title("Train Confusion Matrix")
-
-            # plt.matshow(confmatTrain, cmap=plt.cm.Blues, alpha=0.5)
-            # plt.gcf().subplots_adjust(left=.5)
-            # for i in range(confmatTrain.shape[0]):
-            #     for j in range(confmatTrain.shape[1]):
-            #         plt.text(x=j, y=i,
-            #                 s=round(confmatTrain[i,j],3), fontsize=6, horizontalalignment='center')
-            # plt.xticks(np.arange(10), labels=training_classes)
-            # plt.yticks(np.arange(10), labels=training_classes)
-            # plt.tick_params('both', labelsize=8, labelrotation=45)
-            # plt.xlabel('predicted label')
-            # plt.ylabel('reference label', rotation=90)
-            # plt.savefig(f'{path}/{train_idx}-train_confusion_matricontrx')
-            # print(f'+w {path}/{train_idx}-train_confusion_matrix')
-            # plt.close()
-
-            # with open(path + "results.txt", "w") as f:
-            #     f.write("Score Test: " + str(score))
-            #     f.write("Score Train " + str(score_train))
-            #     f.write("\nProcessing Times:")
-            #     f.write(json.dumps(processing_time, indent=4, separators=(',', ': ')))
-            #     f.write("\nOob Score: " + str(clf.oob_score_))
+        # print(confmatTest.shape)
+        # print(confmatTrain.shape)
 
 
-        start_pred = time.time()
 
-        pred = clf.predict(X_test)
-
-        end_pred = time.time()
-        pred_train = clf.predict(X)
-        pred_train_total = clf.predict(X_train_total)
-        predict_time = round(end_pred - start_pred, 2)
-        processing_time['predict'].append(predict_time)
-
-        confmatTest = confusion_matrix(
-                 y_true=y_test, y_pred=pred)
-        confmatTrain = confusion_matrix(y_true=y, y_pred=pred_train)
+        pred_train_total = clf.predict(X_train_total) # actually a subset of the total, the actualy data used for training
         confmatTrainTotal = confusion_matrix(y_true=y_train_total, y_pred=pred_train_total)
+        print(confmatTrainTotal.shape)
 
 
-        score = clf.score(X_test, y_test)
+        # score = clf.score(X_test, y_test)
         score_train = clf.score(X_train_total, y_train_total)
 
-        plt.title('Prediction')
-        plt.imshow(pred.reshape(preserve_shape[1], preserve_shape[2]), cmap='gray')
-        plt.savefig(f'{path}/final-prediction')
-        print(f'+w {path}/f    binal-prediction')
-        plt.close()
+        # plt.title('Prediction')
+        # plt.imshow(pred.reshape(preserve_shape[1], preserve_shape[2]), cmap='cubehelix')
+        # plt.savefig(f'{path}/final-prediction')
+        # print(f'+w {path}/f    binal-prediction')
+        # plt.close()
 
-        plt.title("Test Confusion Matrix")
-        plt.matshow(confmatTest, cmap=plt.cm.Blues, alpha=0.5)
-        plt.gcf().subplots_adjust(left=.5)
-        for i in range(confmatTest.shape[0]):
-            for j in range(confmatTest.shape[1]):
-                plt.text(x=j, y=i,
-                        s=round(confmatTest[i,j],3), fontsize=6, horizontalalignment='center')
-        plt.xticks(np.arange(10), labels=classes)
-        plt.yticks(np.arange(10), labels=classes)
-        plt.tick_params('both', labelsize=8, labelrotation=45)
-        plt.xlabel('predicted label')
-        plt.ylabel('reference label', rotation=90)
-        plt.savefig(f'{path}/final-test_confusion_matrix')
-        print(f'+w {path}/final-test_confusion_matrix')
-        plt.close()
+        # plt.title("Test Confusion Matrix")
+        # plt.matshow(confmatTest, cmap=plt.cm.Blues, alpha=0.1)
+        # plt.gcf().subplots_adjust(left=.5)
+        # for i in range(confmatTest.shape[0]):
+        #     for j in range(confmatTest.shape[1]):
+        #         plt.text(x=j, y=i,
+        #                 s=round(confmatTest[i,j],3), fontsize=6, horizontalalignment='center')
+        # plt.xticks(np.arange(10), labels=classes)
+        # plt.yticks(np.arange(10), labels=classes)
+        # plt.tick_params('both', labelsize=8, labelrotation=45)
+        # plt.xlabel('predicted label')
+        # plt.ylabel('reference label', rotation=90)
+        # plt.savefig(f'{path}/final-test_confusion_matrix')
+        # print(f'+w {path}/final-test_confusion_matrix')
+        # plt.close()
 
-        plt.title("Train Confusion Matrix")
-        plt.matshow(confmatTrain, cmap=plt.cm.Blues, alpha=0.5)
-        plt.gcf().subplots_adjust(left=.5)
-        for i in range(confmatTrain.shape[0]):
-            for j in range(confmatTrain.shape[1]):
-                plt.text(x=j, y=i,
-                        s=round(confmatTrain[i,j],3), fontsize=6, horizontalalignment='center')
-        plt.xticks(np.arange(10), labels=training_classes)
-        plt.yticks(np.arange(10), labels=training_classes)
-        plt.tick_params('both', labelsize=8, labelrotation=45)
-        plt.xlabel('predicted label')
-        plt.ylabel('reference label', rotation=90)
-        plt.savefig(f'{path}/final-train_confusion_matrix')
-        print(f'+w {path}/final-train_confusion_matrix')
-        plt.close()
+        # plt.title("Train Confusion Matrix")
+        # plt.matshow(confmatTrain, cmap=plt.cm.Blues, alpha=0.1)
+        # plt.gcf().subplots_adjust(left=.5)
+        # for i in range(confmatTrain.shape[0]):
+        #     for j in range(confmatTrain.shape[1]):
+        #         plt.text(x=j, y=i,
+        #                 s=round(confmatTrain[i,j],3), fontsize=6, horizontalalignment='center')
+        # plt.xticks(np.arange(10), labels=classes)
+        # plt.yticks(np.arange(10), labels=classes)
+        # plt.tick_params('both', labelsize=8, labelrotation=45)
+        # plt.xlabel('predicted label')
+        # plt.ylabel('reference label', rotation=90)
+        # plt.savefig(f'{path}/final-train_confusion_matrix')
+        # print(f'+w {path}/final-train_confusion_matrix')
+        # plt.close()
 
+        # this is poorly named, what this conf matrix
+        # encompasses the data that the model HAS seen
         plt.title("Train Used Confusion Matrix")
-        plt.matshow(confmatTrainTotal, cmap=plt.cm.Blues, alpha=0.5)
+        plt.matshow(confmatTrainTotal, cmap=plt.cm.Blues, alpha=0.1)
         plt.gcf().subplots_adjust(left=.5)
         for i in range(confmatTrainTotal.shape[0]):
             for j in range(confmatTrainTotal.shape[1]):
                 plt.text(x=j, y=i,
-                        s=round(confmatTrain[i,j],3), fontsize=6, horizontalalignment='center')
-        plt.xticks(np.arange(10), labels=training_classes)
-        plt.yticks(np.arange(10), labels=training_classes)
+                        s=round(confmatTrainTotal[i,j],3), fontsize=6, horizontalalignment='center')
+        plt.xticks(np.arange(10), labels=classes)
+        plt.yticks(np.arange(10), labels=classes)
         plt.tick_params('both', labelsize=8, labelrotation=45)
         plt.xlabel('predicted label')
         plt.ylabel('reference label', rotation=90)
@@ -337,7 +288,7 @@ def main():
         plt.close()
 
         with open(path + "/results.txt", "w") as f:
-                f.write("Score Test: " + str(score))
+                # f.write("Score Test: " + str(score))
                 f.write("\nScore Train: " +str(score_train))
                 f.write("\nProcessing Times:")
 
