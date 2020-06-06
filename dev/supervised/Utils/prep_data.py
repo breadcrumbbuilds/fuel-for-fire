@@ -126,10 +126,8 @@ def rawread(raw_data, raw_labels):
     cols, rows, bands, X = read_binary(f'{raw_data}/S2A.bin', to_string=False)
     y = encode_one_hot(raw_labels, cols, rows)
 
-
-    X = X.reshape(bands, rows, cols)
-    y = y.reshape(rows, cols)
-
+    X = bsq_to_scikit(cols, rows, bands, X)
+    print(X.shape, y.shape)
     return X, y
 
 
@@ -205,6 +203,21 @@ def oversample(X, y, n_classes=10, extra_samples=0):
     del y_
     return X_out, y_out
 
+
+def bsq_to_scikit(ncol, nrow, nband, d):
+    # convert image to a format expected by sgd / scikit learn
+
+    npx = nrow * ncol # number of pixels
+
+    # convert the image data to a numpy array of format expected by sgd
+    img_np = np.zeros((npx, nband))
+    for i in range(0, nrow):
+        ii = i * ncol
+        for j in range(0, ncol):
+            for k in range(0, nband):
+                # don't mess up the indexing
+                img_np[ii + j, k] = d[(k * npx) + ii + j]
+    return(img_np)
 
 def create_paths(root):
     """--------------------------------------------------------------------
