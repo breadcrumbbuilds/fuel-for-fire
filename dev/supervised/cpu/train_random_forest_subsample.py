@@ -127,7 +127,7 @@ def main():
 
 
         params = {
-        'n_estimators': 125,
+        'n_estimators': 250,
         'max_depth': 8,
         'verbose': 1,
         'n_jobs': -1,
@@ -207,7 +207,7 @@ def main():
 
                 clf.fit(X_train, y_train)
                 print(clf.n_estimators)
-                clf.n_estimators = clf.n_estimators + 125
+                clf.n_estimators = clf.n_estimators + 250
                 print(clf.n_estimators)
             end_fit = time.time()
             fit_time = round(end_fit - start_fit, 2)
@@ -230,7 +230,7 @@ def main():
         print(confmatTrainTotal.shape)
 
 
-        score = clf.score(X_test, y_test)
+
         score_train = clf.score(X_train_total, y_train_total)
 
         plt.title('Prediction')

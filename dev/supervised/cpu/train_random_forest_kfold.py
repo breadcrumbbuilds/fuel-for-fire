@@ -4,6 +4,7 @@ from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import OneHotEncoder
 from sklearn.metrics import confusion_matrix
 from sklearn.metrics import mean_squared_error
+from sklearn.metrics import balanced_accuracy_score
 
 from matplotlib.patches import Rectangle
 import matplotlib.patches as mpatches
@@ -27,6 +28,7 @@ def main():
 
     ## Two sets of targets, the testing image will have portions
     ## of the classes that we are not training for
+    n_est = 250 # the number of estimators to fit per fold
     target = {
         "conifer" : "CONIFER.bin",
         "ccut" : "CCUTBL.bin",
@@ -78,11 +80,9 @@ def main():
 
     datadir = f'{root_path}'
 
-
-
     X = np.load(f'{datadir}/full-img.npy')
     y = np.load(f'{datadir}/full-label.npy')
-    orig_shape = (3402, 4835)
+
     sub_img_shape = (4835//5,3402)
     fold_length = X.shape[0] // 5
     """----------------------------------------------------------------------------------------------------------------------------
@@ -129,7 +129,7 @@ def main():
 
 
         params = {
-        'n_estimators': 125,
+        'n_estimators': n_est,
         'max_depth': 8,
         'verbose': 1,
         'n_jobs': -1,
@@ -138,29 +138,21 @@ def main():
         'warm_start': True
         }
         clf = RandomForestClassifier(**params,)
-        iter_ = 0
 
         """----------------------------------------------------------------------------------------------------------------------------
         * Training
         """
+        X_train_subs = list()
+        y_train_subs = list()
         for train_idx in range(5):
             if train_idx == test_idx:
                 continue
             X_train = X[train_idx * fold_length : (train_idx + 1)*fold_length, :]
             y_train = y[train_idx * fold_length : (train_idx + 1)*fold_length]
 
-            # got the whole thing setup, now we need to take a subset of the trianing data of size
-            # of the limiting sample
-
-            if iter_ == 0:
-                    X_train_total = X_train
-                    y_train_total = y_train
-                    iter_ = 1
-            else:
-                X_train_total = np.concatenate((X_train_total, X_train))
-                y_train_total = np.concatenate((y_train_total, y_train))
-
-
+            # Save this to make some metrics later
+            X_train_subs.append(X_train)
+            y_train_subs.append(y_train)
             print("Training Index", train_idx)
             print("\tX_train shape", X_train.shape)
             print("\ty_train shape", y_train.shape)
@@ -168,8 +160,7 @@ def main():
 
             start_fit = time.time()
             clf.fit(X_train, y_train)
-            print(clf.n_estimators)
-            clf.n_estimators = clf.n_estimators + 250
+            clf.n_estimators = clf.n_estimators + n_est
             end_fit = time.time()
             fit_time = round(end_fit - start_fit, 2)
             processing_time['fit'].append(fit_time)
@@ -177,6 +168,7 @@ def main():
         """----------------------------------------------------------------------------------------------------------------------------
         * Prediction and Metrics
         """
+        print("Test Predict")
         start_pred = time.time()
         pred = clf.predict(X_test)
         end_pred = time.time()
@@ -184,37 +176,38 @@ def main():
         predict_time = round(end_pred - start_pred, 2)
         processing_time['predict'].append(predict_time)
 
-        score = clf.score(X_test, y_test)
+        print("Test Score")
+        score = balanced_accuracy_score(y_test, pred)
+        print("Test Confusion Matrix")
         confmatTest = confusion_matrix(
                  y_true=y_test, y_pred=pred)
+        print("Test MSE")
         mse_test = mean_squared_error(y_test, pred)
 
-        pred_train_total = clf.predict(X_train_total) # actually a subset of the total, the actualy data used for training
-        confmatTrainTotal = confusion_matrix(y_true=y_train_total, y_pred=pred_train_total)
-        score_train = clf.score(X_train_total, y_train_total)
-        mse_train = mean_squared_error(y_train_total, pred_train_total)
-        """----------------------------------------------------------------------------------------------------------------------------
-        * Output
-        """
-        plt.title('Prediction')
-        colormap = plt.imshow(pred.reshape(sub_img_shape), cmap='cubehelix')
-        cbar = plt.colorbar(colormap,
-                      orientation='vertical',
-                     boundaries=range(11), shrink=.95,extend='max', extendrect=True, drawedges=True, spacing='uniform')
+        f, ax = plt.subplots(2,1, sharey=True, figsize=(30,15))
+        f.suptitle("Test Reference vs Prediction")
+        y_test = y_test.reshape(sub_img_shape)
+        colormap_y = ax[0].imshow(y_test, cmap='cubehelix', vmin=0, vmax=12)
+        ax[0].set_title('Ground Reference')
+        ax[1].imshow(pred.reshape(sub_img_shape), cmap='cubehelix', vmin=0, vmax=12)
+        ax[1].set_title('Prediction')
+
+
+        cbar = f.colorbar(colormap_y,
+                        ax=ax.ravel().tolist(),
+                        orientation='vertical',
+                        boundaries=range(11), shrink=.95,extend='max', extendrect=True, drawedges=True, spacing='uniform')
         cbar.ax.set_yticklabels(["unlabelled",
-            "conifer",
-            "ccut",
-            "water",
-            "broadleaf",
-            "shrub",
-            "mixed",
-            "herb",
-            "exposed",
-            "river",""])
-
-
-        plt.savefig(f'{path}/final-prediction')
-        print(f'+w {path}/final-prediction')
+                "conifer",
+                "ccut",
+                "water",
+                "broadleaf",
+                "shrub",
+                "mixed",
+                "herb",
+                "exposed",
+                "river",""],fontsize=20)
+        plt.savefig(f'{path}/test_predvsref')
         plt.close()
 
         plt.title("Test Confusion Matrix")
@@ -229,26 +222,73 @@ def main():
         plt.tick_params('both', labelsize=8, labelrotation=45)
         plt.xlabel('predicted label')
         plt.ylabel('reference label', rotation=90)
-        plt.savefig(f'{path}/final-test_confusion_matrix')
-        print(f'+w {path}/final-test_confusion_matrix')
+        plt.savefig(f'{path}/test_confusion_matrix')
+        print(f'+w {path}/test_confusion_matrix')
         plt.close()
-        # this is poorly named, what this conf matrix
-        # encompasses the data that the model HAS seen
-        plt.title("Train Confusion Matrix")
-        plt.matshow(confmatTrainTotal, cmap=plt.cm.Blues, alpha=0.5)
-        plt.gcf().subplots_adjust(left=.5)
-        for i in range(confmatTrainTotal.shape[0]):
-            for j in range(confmatTrainTotal.shape[1]):
-                plt.text(x=j, y=i,
-                        s=round(confmatTrainTotal[i,j],3), fontsize=6, horizontalalignment='center')
-        plt.xticks(np.arange(10), labels=classes)
-        plt.yticks(np.arange(10), labels=classes)
-        plt.tick_params('both', labelsize=8, labelrotation=45)
-        plt.xlabel('predicted label')
-        plt.ylabel('reference label', rotation=90)
-        plt.savefig(f'{path}/final-train_confusion_matrix')
-        print(f'+w {path}/final-train_confusion_matrix')
-        plt.close()
+
+
+
+        # We crash if we try to do the whole X_train at once
+        # Sln: Chunk it up and iteratively produce results
+        train_scores = 0
+        mse_train = 0
+        for idx, (X_train, y_train) in enumerate(zip(X_train_subs, y_train_subs)):
+
+            print("Train Predict")
+            train_pred = clf.predict(X_train)
+            print("Train Confusion Matrix")
+            confmat_train = confusion_matrix(y_true=y_train, y_pred=train_pred)
+            print("Train Score")
+            train_scores += balanced_accuracy_score(y_train, train_pred)
+            print("Train MSE")
+            mse_train += mean_squared_error(y_train, train_pred)
+
+
+            f, ax = plt.subplots(2,1, sharey=True, figsize=(30,15))
+            f.suptitle("Train Reference vs Prediction")
+            y_train = y_train.reshape(sub_img_shape)
+            colormap_y = ax[0].imshow(y_train, cmap='cubehelix', vmin=0, vmax=12)
+            ax[0].set_title('Ground Reference')
+            ax[1].imshow(train_pred.reshape(sub_img_shape), cmap='cubehelix', vmin=0, vmax=12)
+            ax[1].set_title('Prediction')
+
+            cbar = f.colorbar(colormap_y,
+                            ax=ax.ravel().tolist(),
+                            orientation='vertical',
+                            boundaries=range(11), shrink=.95,extend='max', extendrect=True, drawedges=True, spacing='uniform')
+            cbar.ax.set_yticklabels(["unlabelled",
+                    "conifer",
+                    "ccut",
+                    "water",
+                    "broadleaf",
+                    "shrub",
+                    "mixed",
+                    "herb",
+                    "exposed",
+                    "river",""],fontsize=20)
+            plt.savefig(f'{path}/{idx}_train_predvsref')
+            plt.close()
+
+
+            plt.title("Train Confusion Matrix")
+            plt.matshow(confmat_train, cmap=plt.cm.Blues, alpha=0.5)
+            plt.gcf().subplots_adjust(left=.5)
+            for i in range(confmat_train.shape[0]):
+                for j in range(confmat_train.shape[1]):
+                    plt.text(x=j, y=i,
+                            s=round(confmat_train[i,j],3), fontsize=6, horizontalalignment='center')
+            plt.xticks(np.arange(10), labels=classes)
+            plt.yticks(np.arange(10), labels=classes)
+            plt.tick_params('both', labelsize=8, labelrotation=45)
+            plt.xlabel('predicted label')
+            plt.ylabel('reference label', rotation=90)
+            plt.savefig(f'{path}/{idx}_train_confusion_matrix')
+            print(f'+w {path}/{idx}_train_confusion_matrix')
+            plt.close()
+
+
+        score_train = round(train_scores / 4, 3)
+        mse_train = round(mse_train / 4,  3)
 
         with open(path + "/results.txt", "w") as f:
             f.write("Score Test: " + str(score))
