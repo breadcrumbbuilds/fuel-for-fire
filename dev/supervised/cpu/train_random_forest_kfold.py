@@ -1,9 +1,10 @@
 from sklearn.ensemble import RandomForestClassifier
-import keras
+
 from sklearn.model_selection import train_test_split
-from sklearn.utils.class_weight import compute_class_weight
 from sklearn.preprocessing import OneHotEncoder
 from sklearn.metrics import confusion_matrix
+from sklearn.metrics import mean_squared_error
+
 from matplotlib.patches import Rectangle
 import matplotlib.patches as mpatches
 import matplotlib.pyplot as plt
@@ -18,33 +19,14 @@ sys.path.append(
 from Utils.Misc import read_binary
 from Utils.Helper import *
 
-"""----------------------------------------------------------------------------------------------------------------------------
-* Train KFolded Random Forest and output figures to describe the RF's performance
-*
-* Dependencies:
-*       1. Ensure the root of the project contains the following folder structure
-*       data
-*           full
-*               data_bcgw
-*                   <Nine class labels of the large image size - naming convention following the 'target' dictionary in this script>
-*               data_img
-*                   <Binary of the large image>
-*       2. Run helpme.py from the root of the project
-*       3. Set your parameters within this script
-"""
-
-
-
-root_path = "data/full/prepared/train/cropped"
+root_path = "data/full/prepared/train"
 reference_data_root = f"{root_path}data_bcgw/"
 raw_data_root = f"{root_path}data_img/"
 
 def main():
-    """----------------------------------------------------------------------------------------------------------------------------
-    * Configuration
-    """
 
-
+    ## Two sets of targets, the testing image will have portions
+    ## of the classes that we are not training for
     target = {
         "conifer" : "CONIFER.bin",
         "ccut" : "CCUTBL.bin",
@@ -52,40 +34,34 @@ def main():
         "broadleaf" : "BROADLEAF.bin",
         "shrub" : "SHRUB.bin",
         "mixed" : "MIXED.bin",
-        "exposed" : "EXPOSED.bin",
         "herb" : "HERB.bin",
+        "exposed" : "EXPOSED.bin",
         "river" : "Rivers.bin",
         # "road" : "ROADS.bin",
         # "vri" : "vri_s3_objid2.tif_proj.bin",
     }
-    classes = ['unlabelled']
+    training_classes = target.keys()
     keys = list(target.keys())
+
+    target_all = {
+        "conifer" : "CONIFER.bin",
+        "ccut" : "CCUTBL.bin",
+        "water": "WATER.bin",
+        "broadleaf" : "BROADLEAF.bin",
+        "shrub" : "SHRUB.bin",
+        "mixed" : "MIXED.bin",
+        "herb" : "HERB.bin",
+        "exposed" : "EXPOSED.bin",
+        "river" : "Rivers.bin",
+        # "road" : "ROADS.bin",
+        # "vri" : "vri_s3_objid2.tif_proj.bin",
+    }
+    classes = ["unlabelled"]
+
+    keys = list(target_all.keys())
     for key in keys:
         classes.append(key)
-    y = np.load("data/full/prepared/train/full-label.npy").ravel()
-    class_weights = dict(np.ndenumerate(compute_class_weight('balanced', np.unique(y), y))) # create a dict of class weights
-    class_weights[0,] = 0.0 # override the compute class weights and set the unlabelled class to zero weight
-    class_weights[1,] =class_weights[1,] * 1.2
-    class_weights[2,] = class_weights[2,] * 1.2
-    del y
 
-    print("Class Weights")
-    for c in class_weights:
-        print(c,class_weights[c])
-    print()
-    # the available configuralbe params for SKlearn
-    params = {
-                'n_estimators': 0,
-                'max_features': 0.1,
-                'max_depth': 5,
-                'verbose': 1,
-                'n_jobs': -1,
-                # 'bootstrap': False,
-                'oob_score': True,
-                'warm_start': True,
-                'class_weight': class_weights
-                }
-    # used to onehot encode all of the classes if need be
 
 
     outdir = os.path.join(os.curdir,'outs')
@@ -99,130 +75,146 @@ def main():
         os.mkdir(outdir)
     outdir = get_run_logdir(outdir)
     os.mkdir(outdir)
-    testdir = os.path.join(root_path, "subsampled")
-    traindir = os.path.join(root_path, "oversample")
+
+    datadir = f'{root_path}'
 
 
+
+    X = np.load(f'{datadir}/full-img.npy')
+    y = np.load(f'{datadir}/full-label.npy')
+    orig_shape = (3402, 4835)
+    sub_img_shape = (4835//5,3402)
+    fold_length = X.shape[0] // 5
     """----------------------------------------------------------------------------------------------------------------------------
     * KFold Training
     """
     for test_idx in range(5):
-        clf = RandomForestClassifier(**params)
 
         path = os.path.join(outdir, f"fold_{test_idx}")
         if not os.path.exists(path):
             os.mkdir(path)
 
-
         processing_time = {'fit': [], 'predict': []}
-        X_test = np.load(f'{root_path}/{test_idx}-data.npy')
-        y_test = np.load(f'{root_path}/{test_idx}-label.npy')
-        print(X_test.shape)
 
-        rows, cols = y_test.shape
+        X_test = X[test_idx * fold_length : (test_idx + 1)*fold_length, :]
+        y_test = y[test_idx * fold_length : (test_idx + 1)*fold_length]
+        preserve_shape = X_test.shape
 
-        plt.title('Reference')
-        plt.imshow(y_test, cmap='gray')
+
+
+        # Save the image as output for reference
+        plt.title('Test Reference')
+        colormap = plt.imshow(y_test.reshape(sub_img_shape), cmap='cubehelix')
+        cbar = plt.colorbar(colormap,
+                      orientation='vertical',
+                     boundaries=range(11), shrink=.95,extend='max', extendrect=True, drawedges=True, spacing='uniform')
+        cbar.ax.set_yticklabels(["unlabelled",
+            "conifer",
+            "ccut",
+            "water",
+            "broadleaf",
+            "shrub",
+            "mixed",
+            "herb",
+            "exposed",
+            "river",""])
         plt.savefig(f'{path}/{test_idx}-reference')
         plt.close()
         print(f'+w {path}/{test_idx}-reference')
 
-        X_test = X_test.reshape(X_test.shape[1] * X_test.shape[2], X_test.shape[0])
-        y_test = y_test.ravel()
-        # y_test = keras.utils.to_categorical(y_test, num_classes=len(target)+1)
-
-
         print("Test Index", test_idx)
         print("X_test shape", X_test.shape)
         print("y_test shape", y_test.shape)
-        vals, counts = np.unique(y_test, return_counts=True)
-        for v in zip(vals, counts):
-            print(v)
+
+
+
+        params = {
+        'n_estimators': 125,
+        'max_depth': 8,
+        'verbose': 1,
+        'n_jobs': -1,
+        # 'bootstrap': False,
+        'oob_score': True,
+        'warm_start': True
+        }
+        clf = RandomForestClassifier(**params,)
+        iter_ = 0
 
         """----------------------------------------------------------------------------------------------------------------------------
-        * Train on all the training sets iteratively, see the data three times per training inex
+        * Training
         """
         for train_idx in range(5):
-
-            if test_idx == train_idx:
-                # this is our test set => move on
+            if train_idx == test_idx:
                 continue
-            clf.n_estimators += 10000
+            X_train = X[train_idx * fold_length : (train_idx + 1)*fold_length, :]
+            y_train = y[train_idx * fold_length : (train_idx + 1)*fold_length]
 
-            X_train = np.load(f'{root_path}/{train_idx}-data.npy')
-            y_train = np.load(f'{root_path}/{train_idx}-label.npy')
-            X_train = X_train.reshape(X_train.shape[1] * X_train.shape[2], X_train.shape[0])
-            y_train = y_train.ravel()
-            # y_train = keras.utils.to_categorical(y_train, num_classes=len(target) + 1)
+            # got the whole thing setup, now we need to take a subset of the trianing data of size
+            # of the limiting sample
+
+            if iter_ == 0:
+                    X_train_total = X_train
+                    y_train_total = y_train
+                    iter_ = 1
+            else:
+                X_train_total = np.concatenate((X_train_total, X_train))
+                y_train_total = np.concatenate((y_train_total, y_train))
+
 
             print("Training Index", train_idx)
             print("\tX_train shape", X_train.shape)
             print("\ty_train shape", y_train.shape)
-            vals, counts = np.unique(y_train, return_counts=True)
-            for x in zip(vals, counts):
-                print(x)
+
 
             start_fit = time.time()
-
             clf.fit(X_train, y_train)
-
+            print(clf.n_estimators)
+            clf.n_estimators = clf.n_estimators + 250
             end_fit = time.time()
             fit_time = round(end_fit - start_fit, 2)
-
             processing_time['fit'].append(fit_time)
-            pred = clf.predict(X_test)
 
-            confmatTest = confusion_matrix(
-                y_true=y_test, y_pred=pred)
-            score = clf.score(X_test, y_test)
-
-            plt.title('Prediction')
-            plt.imshow(pred.reshape(rows, cols) / 255, cmap='gray')
-
-            plt.savefig(f'{path}/{train_idx}-prediction')
-            plt.close()
-            print(f'+w {path}/{train_idx}-prediction')
-
-            plt.title("Test Confusion Matrix")
-            plt.matshow(confmatTest, cmap=plt.cm.Blues, alpha=0.5)
-            plt.gcf().subplots_adjust(left=.5)
-            for i in range(confmatTest.shape[0]):
-                for j in range(confmatTest.shape[1]):
-                    plt.text(x=j, y=i,
-                            s=round(confmatTest[i,j],3), fontsize=6, horizontalalignment='center')
-            plt.xticks(np.arange(10), labels=classes)
-            plt.yticks(np.arange(10), labels=classes)
-            plt.tick_params('both', labelsize=8, labelrotation=45)
-            plt.xlabel('predicted label')
-            plt.ylabel('reference label', rotation=90)
-            plt.savefig(f'{path}/{train_idx}-test_confusion_matrix')
-            print(f'+w {path}/{train_idx}-test_confusion_matrix')
-            plt.close()
-            with open(os.path.join(path, "results.txt"), "w") as f:
-                f.write("Score: " + str(score))
-                f.write("\nProcessing Times:")
-                f.write(json.dumps(processing_time, indent=4, separators=(',', ': ')))
-                f.write("\nOob Score: " + str(clf.oob_score_))
-
-
-
+        """----------------------------------------------------------------------------------------------------------------------------
+        * Prediction and Metrics
+        """
         start_pred = time.time()
-
         pred = clf.predict(X_test)
-
         end_pred = time.time()
 
         predict_time = round(end_pred - start_pred, 2)
         processing_time['predict'].append(predict_time)
 
+        score = clf.score(X_test, y_test)
         confmatTest = confusion_matrix(
                  y_true=y_test, y_pred=pred)
-        score = clf.score(X_test, y_test)
+        mse_test = mean_squared_error(y_test, pred)
 
+        pred_train_total = clf.predict(X_train_total) # actually a subset of the total, the actualy data used for training
+        confmatTrainTotal = confusion_matrix(y_true=y_train_total, y_pred=pred_train_total)
+        score_train = clf.score(X_train_total, y_train_total)
+        mse_train = mean_squared_error(y_train_total, pred_train_total)
+        """----------------------------------------------------------------------------------------------------------------------------
+        * Output
+        """
         plt.title('Prediction')
-        plt.imshow(pred.reshape(rows, cols), cmap='gray')
+        colormap = plt.imshow(pred.reshape(sub_img_shape), cmap='cubehelix')
+        cbar = plt.colorbar(colormap,
+                      orientation='vertical',
+                     boundaries=range(11), shrink=.95,extend='max', extendrect=True, drawedges=True, spacing='uniform')
+        cbar.ax.set_yticklabels(["unlabelled",
+            "conifer",
+            "ccut",
+            "water",
+            "broadleaf",
+            "shrub",
+            "mixed",
+            "herb",
+            "exposed",
+            "river",""])
+
+
         plt.savefig(f'{path}/final-prediction')
-        print(f'+w {path}/f    binal-prediction')
+        print(f'+w {path}/final-prediction')
         plt.close()
 
         plt.title("Test Confusion Matrix")
@@ -240,13 +232,33 @@ def main():
         plt.savefig(f'{path}/final-test_confusion_matrix')
         print(f'+w {path}/final-test_confusion_matrix')
         plt.close()
+        # this is poorly named, what this conf matrix
+        # encompasses the data that the model HAS seen
+        plt.title("Train Confusion Matrix")
+        plt.matshow(confmatTrainTotal, cmap=plt.cm.Blues, alpha=0.5)
+        plt.gcf().subplots_adjust(left=.5)
+        for i in range(confmatTrainTotal.shape[0]):
+            for j in range(confmatTrainTotal.shape[1]):
+                plt.text(x=j, y=i,
+                        s=round(confmatTrainTotal[i,j],3), fontsize=6, horizontalalignment='center')
+        plt.xticks(np.arange(10), labels=classes)
+        plt.yticks(np.arange(10), labels=classes)
+        plt.tick_params('both', labelsize=8, labelrotation=45)
+        plt.xlabel('predicted label')
+        plt.ylabel('reference label', rotation=90)
+        plt.savefig(f'{path}/final-train_confusion_matrix')
+        print(f'+w {path}/final-train_confusion_matrix')
+        plt.close()
 
         with open(path + "/results.txt", "w") as f:
-                f.write("Score: " + str(score))
-                f.write("\nProcessing Times:")
-                f.write(json.dumps(processing_time, indent=4, separators=(',', ': ')))
-                f.write("\nOob Score: " + str(clf.oob_score_))
-                f.write("\nFeature Importance: " + str(clf.feature_importances_))
+            f.write("Score Test: " + str(score))
+            f.write("\nScore Train: " +str(score_train))
+            f.write("\nMSE Test: " + str(mse_test))
+            f.write("\nMSE Train: " + str(mse_train))
+            f.write("\nProcessing Times:")
+            f.write(json.dumps(processing_time, indent=4, separators=(',', ': ')))
+            f.write("\nOob Score: " + str(clf.oob_score_))
+            f.write("\nFeature Importance: " + str(clf.feature_importances_))
 
 
 """Builds a visualization of the confusion matrix

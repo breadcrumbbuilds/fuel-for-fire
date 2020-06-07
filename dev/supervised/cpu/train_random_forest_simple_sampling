@@ -61,13 +61,13 @@ def main():
 
     X_train = n_th(X, n_skip)
     y_train = n_th(y, n_skip)
-    
+
     print(f'X_train shape: {X_train.shape}')
     print(f'y_train shape: {y_train.shape}')
 
 
     rf = RandomForestClassifier(n_estimators=n_est, oob_score=True, verbose=1, n_jobs=-1) # could crash on warn and increase # of estimators
-    
+
     rf.fit(X_train, y_train)
 
     predict = rf.predict(X_train)
@@ -95,7 +95,7 @@ def n_th(img, n): # take every n-th data point (data in scikit-learn expected fo
         result = np.zeros(npx2)
         for i in range(0, npx, n):
             ip = int(math.floor(i/n))
-            if npx2 == ip:
+            if npx2 == ip
                 break # index error
             result[ip] = img[i]
     else:
