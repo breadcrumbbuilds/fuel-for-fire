@@ -169,8 +169,8 @@ def main():
                 initialized = False
                 for idx in range(len(vals)):
                     # if it's the unlabelled data, move on, don't want to include this in training
-                    # if idx == 0  or idx == 1 or idx == 2 or idx == 3: # ignore ccut
-                    #     continue
+                    if idx == 0 or idx == 2:
+                        continue
 
                     indices = np.where(y_sub == idx) # gets the samples of this (idx) target
                 # need a subset of indices, then index the original X_train and y_train
