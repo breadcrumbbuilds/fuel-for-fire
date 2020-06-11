@@ -26,7 +26,7 @@ def main():
 
     ## Two sets of targets, the testing image will have portions
     ## of the classes that we are not training for
-    n_est = 50 # the number of estimators to fit per fold
+    n_est = 125 # the number of estimators to fit per fold
     target_all = {
         "conifer" : "CONIFER.bin",
         "ccut" : "CCUTBL.bin",
@@ -90,7 +90,7 @@ def main():
 
                 params = {
                         'n_estimators': n_est,
-                        'max_depth': 8,
+                        'max_depth': 6,
                         'verbose': 1,
                         'n_jobs': -1,
                         # 'bootstrap': False,
@@ -119,12 +119,12 @@ def main():
                     processing_time['fit'].append(fit_time)
 
                 test_pred = clf.predict_proba(X_test)
-                f, ax = plt.subplots(1,2, sharey=True, figsize=(30,15))
-                f.suptitle("Test Reference vs Prediction")
+                f, ax = plt.subplots(2,1, sharey=True, figsize=(30,15))
+                f.suptitle(f"{target} Test Reference vs Prediction")
                 y_test = y_test.reshape(sub_img_shape)
                 colormap_y = ax[0].imshow(y_test, cmap='gray', vmin=0, vmax=1)
                 ax[0].set_title('Ground Reference')
-                ax[1].imshow(test_pred[1].reshape(sub_img_shape), cmap='gray', vmin=0, vmax=11)
+                ax[1].imshow(test_pred[:,1].reshape(sub_img_shape), cmap='gray', vmin=0, vmax=1)
                 ax[1].set_title('Prediction Confidence')
 
                 plt.savefig(f'{path}/test_predvsref')
