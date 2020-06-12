@@ -5,6 +5,7 @@ from sklearn.preprocessing import OneHotEncoder
 from sklearn.metrics import confusion_matrix
 from sklearn.metrics import mean_squared_error
 from sklearn.metrics import accuracy_score
+from sklearn.metrics import balanced_accuracy_score
 
 from matplotlib.patches import Rectangle
 import matplotlib.patches as mpatches
@@ -26,7 +27,7 @@ def main():
 
     ## Two sets of targets, the testing image will have portions
     ## of the classes that we are not training for
-    n_est = 125 # the number of estimators to fit per fold
+    n_est = 10  # the number of estimators to fit per fold
     target_all = {
         "conifer" : "CONIFER.bin",
         "ccut" : "CCUTBL.bin",
@@ -65,7 +66,8 @@ def main():
     sub_img_shape = (4835//5,3402)
     fold_length = X.shape[0] // 5
 
-    for target in target_all.keys():
+    # for target in target_all.keys():
+    for target in ["conifer", "ccut"]:
         reference_path = f'{reference_data_root}{target_all[target]}'
         if os.path.exists(reference_path):
             cols, rows, bands, y = read_binary(reference_path, to_string=False)
@@ -104,7 +106,7 @@ def main():
                 X_test = X[test_idx * fold_length : (test_idx + 1)*fold_length, :]
                 y_test = y[test_idx * fold_length : (test_idx + 1)*fold_length]
 
-                for train_idx in range(5):
+                for train_idx in range(2):
                     if train_idx == test_idx:
                         continue
                     X_train = X[train_idx * fold_length : (train_idx + 1)*fold_length, :]
@@ -118,17 +120,44 @@ def main():
                     fit_time = round(end_fit - start_fit, 2)
                     processing_time['fit'].append(fit_time)
 
-                test_pred = clf.predict_proba(X_test)
+                test_pred_confidence = clf.predict_proba(X_test)
+                np.save(f'{path}/{target}', test_pred_confidence[:,1])
+                test_pred_class = clf.predict(X_test)
                 f, ax = plt.subplots(2,1, sharey=True, figsize=(30,15))
                 f.suptitle(f"{target} Test Reference vs Prediction")
-                y_test = y_test.reshape(sub_img_shape)
-                colormap_y = ax[0].imshow(y_test, cmap='gray', vmin=0, vmax=1)
+                colormap_y = ax[0].imshow(y_test.reshape(sub_img_shape) , cmap='gray', vmin=0, vmax=1)
                 ax[0].set_title('Ground Reference')
-                ax[1].imshow(test_pred[:,1].reshape(sub_img_shape), cmap='gray', vmin=0, vmax=1)
+                ax[1].imshow(test_pred_confidence[:,1].reshape(sub_img_shape), cmap='gray', vmin=0, vmax=1)
                 ax[1].set_title('Prediction Confidence')
 
-                plt.savefig(f'{path}/test_predvsref')
+                plt.savefig(f'{path}/{target}_test_predvsref')
                 plt.close()
+
+                with open(path + f"/{target}_results.txt", "w") as f:
+                     f.write("Accuracy Test: " + str(accuracy_score(y_test, test_pred_class)))
+                     f.write("\nBalanace Accuracy Test: " + str(balanced_accuracy_score(y_test, test_pred_class)))
+                    # f.write("\nScore Train: " +str(score_train))
+                    # f.write("\nMSE Test: " + str(mse_test))
+                    # f.write("\nMSE Train: " + str(mse_train))
+                    # f.write("\nProcessing Times:")
+                    # f.write(json.dumps(processing_time, indent=4, separators=(',', ': ')))
+                    # f.write("\nOob Score: " + str(clf.oob_score_))
+                    # f.write("\nFeature Importance: " + str(clf.feature_importances_))
+    # Everything has a model
+    for idx in range(5):
+        path = os.path.join(outdir, f"fold_{idx}")
+
+        confidence_maps = np.zeros((sub_img_shape[0] * sub_img_shape[1], len(target_all)))
+        print(confidence_maps.shape)
+        for target in ["conifer", "ccut"]:
+        # for idx, target in enumerate(target_all.keys()):
+            map = np.load(f'{path}/{target}.npy')
+            print(map.shape)
+            confidence_maps[:, idx] = map
+
+        result = np.zeros((sub_img_shape[0] * sub_img_shape[1]))
+        for p in confidence_maps:
+            print(p)
 
             # plt.title("Test Confusion Matrix")
             # plt.matshow(confmatTest, cmap=plt.cm.Blues, alpha=0.5)
