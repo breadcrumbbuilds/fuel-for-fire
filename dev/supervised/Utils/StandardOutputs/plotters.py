@@ -36,8 +36,9 @@ def imshow_ref_vs_predict_multiclass(y, pred, filename, img_shape, classes, titl
     plt.close()
 
 def imshow_with_colorbar(y, filename, img_shape, classes, title="Image"):
-    plt.title('Test Reference')
-    colormap = plt.imshow(y.reshape(img_shape), cmap='cubehelix')
+    plt.title(title)
+    plt.figure(figsize = (30,15))
+    colormap = plt.imshow(y.reshape(img_shape), cmap='cubehelix', vmin=0, vmax=len(classes))
     cbar = plt.colorbar(colormap,
                     orientation='vertical',
                     boundaries=range(len(classes) + 1), shrink=.95,extend='max', extendrect=True, drawedges=True, spacing='uniform')
