@@ -18,6 +18,10 @@ sys.path.append(
     os.path.abspath(os.path.join(os.path.dirname(__file__), os.path.pardir)))
 from Utils.Misc import read_binary
 from Utils.Helper import *
+# some_file.py
+import sys
+sys.path.insert(1, 'dev/supervised/Utils/StandardOutputs')
+import plotters
 
 root_path = "data/full/prepared/train"
 reference_data_root = f"{root_path}data_bcgw/"
@@ -269,6 +273,7 @@ def main():
             confmat_train = confusion_matrix(y_true=y_train, y_pred=pred_train)
             train_scores += balanced_accuracy_score(y_train, pred_train)
             mse_train += mean_squared_error(y_train, pred_train)
+
 
             plt.title(f"Train {idx} Confusion Matrix")
             plt.matshow(confmat_train, cmap=plt.cm.Blues, alpha=0.5)
