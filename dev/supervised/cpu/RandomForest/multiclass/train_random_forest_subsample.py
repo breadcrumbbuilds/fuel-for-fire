@@ -32,21 +32,7 @@ def main():
     ## Two sets of targets, the testing image will have portions
     ## of the classes that we are not training for
     n_est = 125
-    target = {
-        "conifer" : "CONIFER.bin",
-        "ccut" : "CCUTBL.bin",
-        "water": "WATER.bin",
-        "broadleaf" : "BROADLEAF.bin",
-        "shrub" : "SHRUB.bin",
-        "mixed" : "MIXED.bin",
-        "herb" : "HERB.bin",
-        "exposed" : "EXPOSED.bin",
-        "river" : "Rivers.bin",
-        # "road" : "ROADS.bin",
-        # "vri" : "vri_s3_objid2.tif_proj.bin",
-    }
-    training_classes = target.keys()
-    keys = list(target.keys())
+    n_subsamples = 1
 
     target_all = {
         "conifer" : "CONIFER.bin",
@@ -107,25 +93,29 @@ def main():
         preserve_shape = X_test.shape
 
 
-
+        imshow_with_colorbar(y_test,
+                             f'{path}/{test_idx}-reference',
+                             sub_img_shape,
+                             classes,
+                             title="Test Reference")
         # Save the image as output for reference
-        plt.title('Test Reference')
-        colormap = plt.imshow(y_test.reshape(sub_img_shape), cmap='cubehelix')
-        cbar = plt.colorbar(colormap,
-                      orientation='vertical',
-                     boundaries=range(11), shrink=.95,extend='max', extendrect=True, drawedges=True, spacing='uniform')
-        cbar.ax.set_yticklabels(["unlabelled",
-            "conifer",
-            "ccut",
-            "water",
-            "broadleaf",
-            "shrub",
-            "mixed",
-            "herb",
-            "exposed",
-            "river",""])
-        plt.savefig(f'{path}/{test_idx}-reference')
-        plt.close()
+        # plt.title('Test Reference')
+        # colormap = plt.imshow(y_test.reshape(sub_img_shape), cmap='cubehelix')
+        # cbar = plt.colorbar(colormap,
+        #               orientation='vertical',
+        #              boundaries=range(11), shrink=.95,extend='max', extendrect=True, drawedges=True, spacing='uniform')
+        # cbar.ax.set_yticklabels(["unlabelled",
+        #     "conifer",
+        #     "ccut",
+        #     "water",
+        #     "broadleaf",
+        #     "shrub",
+        #     "mixed",
+        #     "herb",
+        #     "exposed",
+        #     "river",""])
+        # plt.savefig(f'{path}/{test_idx}-reference')
+        # plt.close()
         print(f'+w {path}/{test_idx}-reference')
 
         print("Test Index", test_idx)
@@ -144,7 +134,6 @@ def main():
         'warm_start': True
         }
         clf = RandomForestClassifier(**params,)
-        iter_ = 0
 
         X_trains = list()
         y_trains = list()
@@ -159,17 +148,11 @@ def main():
             X_sub = X[train_idx * fold_length : (train_idx + 1)*fold_length, :]
             y_sub = y[train_idx * fold_length : (train_idx + 1)*fold_length]
 
-            # got the whole thing setup, now we need to take a subset of the trianing data of size
-            # of the limiting sample
-
             vals, counts = np.unique(y_sub, return_counts=True)
             min_samples = np.min(counts)
 
-            # loop through each class and get a subset of size min sample and store in X_train and y_train
-
-
             start_fit = time.time()
-            for x in range(10):
+            for x in range(n_subsamples):
                 initialized = False
                 for idx in range(len(vals)):
                     # if it's the unlabelled data, move on, don't want to include this in training
@@ -221,48 +204,58 @@ def main():
         mse_test = mean_squared_error(y_test, pred)
         confmat_test = confusion_matrix(y_true=y_test, y_pred=pred)
 
+        imshow_ref_vs_predict_multiclass(y_test,
+                                  pred,
+                                  f'{path}/test_predvsref',
+                                  sub_img_shape,
+                                  classes,
+                                  title="Test Data Reference vs Prediction" )
+        # f, ax = plt.subplots(2,1, sharey=True, figsize=(30,15))
+        # f.suptitle("Test Reference vs Prediction")
+        # y_test = y_test.reshape(sub_img_shape)
+        # colormap_y = ax[0].imshow(y_test, cmap='cubehelix', vmin=0, vmax=12)
+        # ax[0].set_title('Ground Reference')
+        # ax[1].imshow(pred.reshape(sub_img_shape), cmap='cubehelix', vmin=0, vmax=12)
+        # ax[1].set_title('Prediction')
 
-        f, ax = plt.subplots(2,1, sharey=True, figsize=(30,15))
-        f.suptitle("Test Reference vs Prediction")
-        y_test = y_test.reshape(sub_img_shape)
-        colormap_y = ax[0].imshow(y_test, cmap='cubehelix', vmin=0, vmax=12)
-        ax[0].set_title('Ground Reference')
-        ax[1].imshow(pred.reshape(sub_img_shape), cmap='cubehelix', vmin=0, vmax=12)
-        ax[1].set_title('Prediction')
 
+        # cbar = f.colorbar(colormap_y,
+        #                 ax=ax.ravel().tolist(),
+        #                 orientation='vertical',
+        #                 boundaries=range(11), shrink=.95,extend='max', extendrect=True, drawedges=True, spacing='uniform')
+        # cbar.ax.set_yticklabels(["unlabelled",
+        #         "conifer",
+        #         "ccut",
+        #         "water",
+        #         "broadleaf",
+        #         "shrub",
+        #         "mixed",
+        #         "herb",
+        #         "exposed",
+        #         "river",""],fontsize=20)
+        # plt.savefig(f'{path}/test_predvsref')
+        # plt.close()
 
-        cbar = f.colorbar(colormap_y,
-                        ax=ax.ravel().tolist(),
-                        orientation='vertical',
-                        boundaries=range(11), shrink=.95,extend='max', extendrect=True, drawedges=True, spacing='uniform')
-        cbar.ax.set_yticklabels(["unlabelled",
-                "conifer",
-                "ccut",
-                "water",
-                "broadleaf",
-                "shrub",
-                "mixed",
-                "herb",
-                "exposed",
-                "river",""],fontsize=20)
-        plt.savefig(f'{path}/test_predvsref')
-        plt.close()
-
-        plt.title("Test Confusion Matrix")
-        plt.matshow(confmat_test, cmap=plt.cm.Blues, alpha=0.5)
-        plt.gcf().subplots_adjust(left=.5)
-        for i in range(confmat_test.shape[0]):
-            for j in range(confmat_test.shape[1]):
-                plt.text(x=j, y=i,
-                        s=round(confmat_test[i,j],3), fontsize=6, horizontalalignment='center')
-        plt.xticks(np.arange(10), labels=classes)
-        plt.yticks(np.arange(10), labels=classes)
-        plt.tick_params('both', labelsize=8, labelrotation=45)
-        plt.xlabel('predicted label')
-        plt.ylabel('reference label', rotation=90)
-        plt.savefig(f'{path}/test_confusion_matrix')
-        print(f'+w {path}/test_confusion_matrix')
-        plt.close()
+        plot_confusion_matrix(confmat_test,
+                              f'{path}/test_confusion_matrix',
+                              classes,
+                              n_classes=10,
+                              title="Test Confusion Matrix")
+        # plt.title("Test Confusion Matrix")
+        # plt.matshow(confmat_test, cmap=plt.cm.Blues, alpha=0.5)
+        # plt.gcf().subplots_adjust(left=.5)
+        # for i in range(confmat_test.shape[0]):
+        #     for j in range(confmat_test.shape[1]):
+        #         plt.text(x=j, y=i,
+        #                 s=round(confmat_test[i,j],3), fontsize=6, horizontalalignment='center')
+        # plt.xticks(np.arange(10), labels=classes)
+        # plt.yticks(np.arange(10), labels=classes)
+        # plt.tick_params('both', labelsize=8, labelrotation=45)
+        # plt.xlabel('predicted label')
+        # plt.ylabel('reference label', rotation=90)
+        # plt.savefig(f'{path}/test_confusion_matrix')
+        # print(f'+w {path}/test_confusion_matrix')
+        # plt.close()
 
 
 
@@ -274,22 +267,26 @@ def main():
             train_scores += balanced_accuracy_score(y_train, pred_train)
             mse_train += mean_squared_error(y_train, pred_train)
 
-
-            plt.title(f"Train {idx} Confusion Matrix")
-            plt.matshow(confmat_train, cmap=plt.cm.Blues, alpha=0.5)
-            plt.gcf().subplots_adjust(left=.5)
-            for i in range(confmat_train.shape[0]):
-                for j in range(confmat_train.shape[1]):
-                    plt.text(x=j, y=i,
-                            s=round(confmat_train[i,j],3), fontsize=6, horizontalalignment='center')
-            plt.xticks(np.arange(10), labels=classes)
-            plt.yticks(np.arange(10), labels=classes)
-            plt.tick_params('both', labelsize=8, labelrotation=45)
-            plt.xlabel('predicted label')
-            plt.ylabel('reference label', rotation=90)
-            plt.savefig(f'{path}/{idx}_train_confusion_matrix')
-            print(f'+w {path}/{idx}_train_confusion_matrix')
-            plt.close()
+            plot_confusion_matrix(confmat_train,
+                                  f'{path}/{idx}_train_confusion_matrix',
+                                  classes,
+                                  n_classes=10,
+                                  title=f"Train {idx} Confusion Matrix)
+            # plt.title(f"Train {idx} Confusion Matrix")
+            # plt.matshow(confmat_train, cmap=plt.cm.Blues, alpha=0.5)
+            # plt.gcf().subplots_adjust(left=.5)
+            # for i in range(confmat_train.shape[0]):
+            #     for j in range(confmat_train.shape[1]):
+            #         plt.text(x=j, y=i,
+            #                 s=round(confmat_train[i,j],3), fontsize=6, horizontalalignment='center')
+            # plt.xticks(np.arange(10), labels=classes)
+            # plt.yticks(np.arange(10), labels=classes)
+            # plt.tick_params('both', labelsize=8, labelrotation=45)
+            # plt.xlabel('predicted label')
+            # plt.ylabel('reference label', rotation=90)
+            # plt.savefig(f'{path}/{idx}_train_confusion_matrix')
+            # print(f'+w {path}/{idx}_train_confusion_matrix')
+            # plt.close()
         # this is poorly named, what this conf matrix
         # encompasses the data that the model HAS seen
 
