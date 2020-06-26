@@ -160,8 +160,8 @@ def main():
 
             start_fit = time.time()
             clf.fit(X_train, y_train)
-            clf.n_estimators = clf.n_estimators + n_est
             end_fit = time.time()
+            clf.n_estimators = clf.n_estimators + n_est
             fit_time = round(end_fit - start_fit, 2)
             processing_time['fit'].append(fit_time)
 
