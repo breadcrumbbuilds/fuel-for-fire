@@ -1,2 +1,2 @@
-#Random Forest
+# Random Forest
 All of these scripts rely on having a strict folder hierarchy and naming convention for the supplied data. Once this hierarchy is in place, these scripts rely on running prep_data.py, located in Utils.
