@@ -181,3 +181,7 @@ def save_np(data, filename):
     """ Saves data using numpy to filename, logs the save to console """
     np.save(filename, data)
     print(f'+w {filename}')
+
+def load_np(filename):
+    print(f"+r {filename}")
+    return np.load(filename)
