@@ -132,7 +132,7 @@ def get_working_directories(path):
     for dir in path.split("/"):
         root_of_output = mkdir(os.path.join(root_of_output, dir))
     root_of_output = mkdir(get_run_logdir(root_of_output))
-    return  mkdir(os.path.join(root_of_output, 'data')), mkdir(os.path.join(root_of_output, 'results'))
+    return  mkdir(os.path.join(root_of_output, 'data')), mkdir(os.path.join(root_of_output, 'results')), mkdir(os.path.join(root_of_output, 'models'))
 
 
 def mkdir(path):
