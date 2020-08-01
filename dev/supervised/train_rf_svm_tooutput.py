@@ -31,7 +31,7 @@ def main():
     save_rgb(X_subbed_list, sub_img_shape, data_output_directory) # save the rgb in the output dir for later use
 
     targets = {
-        #"conifer" : "CONIFER.bin",
+        "conifer" : "CONIFER.bin",
         "water": "WATER.bin"
     }
     for target in targets:
@@ -43,7 +43,7 @@ def main():
 
         """ Initial K-Fold training """
         print("Training")
-        n_est = 2
+        n_est = 250
 
         initial_models = train_kfold_model(target, X_subbed_list, y_subbed_list, n_est, sub_img_shape, data_output_directory, "initial")
         save_models(initial_models, models_output_directory, "initial_rf")
