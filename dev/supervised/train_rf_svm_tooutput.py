@@ -61,9 +61,9 @@ def main():
         proba_predictions = None
         for x in range(5):
             if proba_predictions is None:
-                proba_predictions = load_np(os.path.join(data_output_directory, f"{target}_initial_proba-prediction-{x}.npy"))
+                proba_predictions = load_np(os.path.join(data_output_directory, f"{target}_initial_proba-prediction-{x}.npy")).ravel()
             else:
-                proba_predictions = np.concatenate((proba_predictions, load_np(os.path.join(data_output_directory, f"{target}_initial_proba-prediction-{x}.npy"))))
+                proba_predictions = np.concatenate((proba_predictions, load_np(os.path.join(data_output_directory, f"{target}_initial_proba-prediction-{x}.npy")).ravel()))
 
         percentile_60 = np.percentile(proba_predictions, 60)
         probability_map = proba_predictions > percentile_60
@@ -114,7 +114,7 @@ def train_kfold_model(target, X_subbed_list, y_subbed_list, n_est, sub_img_shape
         params = {
                         'n_estimators': n_est,
                         'max_depth': 6,
-                        'verbose': 1,
+                        'verbose': 0,
                         'n_jobs': -1,
                         # 'bootstrap': False,
                         'oob_score': True,
@@ -142,10 +142,6 @@ def train_kfold_model(target, X_subbed_list, y_subbed_list, n_est, sub_img_shape
         proba_prediction = clf.predict_proba(X_test)[:,1]
         save_np(class_prediction.reshape(sub_img_shape), os.path.join(data_output_directory, f"{target}_{filename}_class-prediction-{test_idx}"))
         save_np(proba_prediction.reshape(sub_img_shape), os.path.join(data_output_directory, f"{target}_{filename}_proba-prediction-{test_idx}"))
-        plt.imshow(class_prediction.reshape(sub_img_shape), cmap='gray')
-        plt.show()
-        plt.imshow(proba_prediction.reshape(sub_img_shape), cmap='gray')
-        plt.show()
         models.append(clf)
     return models
 
