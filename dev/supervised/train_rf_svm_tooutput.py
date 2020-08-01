@@ -53,7 +53,7 @@ def main():
         print("Training")
         n_est = 2
         initial_models = train_kfold_model(target, X_subbed_list, y_subbed_list, n_est, sub_img_shape, data_output_directory, "initial")
-        for x, model in enumerate(seeded_models):
+        for x, model in enumerate(initial_models):
             dump(model, os.path.join(data_output_directory, f"initial_rf_{x}.joblib"))
             # Save the model here
 
@@ -78,7 +78,6 @@ def main():
         probability_map = proba_predictions > percentile_75
         y_subbed_list = create_sub_imgs(probability_map, fold_length)
         seeded_models = train_kfold_model(RandomForestClassifier(**params),target, X_subbed_list, y_subbed_list, n_est, sub_img_shape, data_output_directory, "seeded-75percentile")
-        dump(seeded_model, os.path.join(data_output_directory, f"seeded_rf_{percentile_75}percentile.joblib"))
         for x, model in enumerate(seeded_models):
             dump(model, os.path.join(data_output_directory, f"seeded_rf_{percentile_75}percentile_{x}.joblib"))
 
@@ -87,7 +86,6 @@ def main():
         probability_map = proba_predictions > percentile_90
         y_subbed_list = create_sub_imgs(probability_map, fold_length)
         seeded_models = train_kfold_model(target, X_subbed_list, y_subbed_list, n_est, sub_img_shape, data_output_directory, "seeded-90percentile")
-        dump(seeded_model, os.path.join(data_output_directory, f"seeded_rf_{percentile_90}percentile.joblib"))
         for x, model in enumerate(seeded_models):
             dump(model, os.path.join(data_output_directory, f"seeded_rf_{percentile_90}percentile_{x}.joblib"))
 
@@ -96,7 +94,6 @@ def main():
         probability_map = proba_predictions > mean
         y_subbed_list = create_sub_imgs(probability_map, fold_length)
         seeded_models = train_kfold_model(target, X_subbed_list, y_subbed_list, n_est, sub_img_shape, data_output_directory, f"seeded-mean-{mean}")
-        dump(seeded_model, os.path.join(data_output_directory, f"seeded_rf_mean{mean}.joblib"))
         for x, model in enumerate(seeded_models):
             dump(model, os.path.join(data_output_directory, f"seeded_rf_{mean}mean_{x}.joblib"))
 
@@ -111,6 +108,9 @@ def train_kfold_model(target, X_subbed_list, y_subbed_list, n_est, sub_img_shape
         print(f"Test Index: {test_idx}")
         X_test = X_subbed_list[test_idx]
         y_test = y_subbed_list[test_idx]
+        if len(X_test.shape) > 2:
+            X_test = X_test.reshape(X_test.shape[0] * X_test.shape[1], X_test.shape[2])
+            y_test = y_test.ravel()
         params = {
                         'n_estimators': n_est,
                         'max_depth': 6,
@@ -127,9 +127,14 @@ def train_kfold_model(target, X_subbed_list, y_subbed_list, n_est, sub_img_shape
             print(f"Fitting Image {train_idx}")
             X_train = X_subbed_list[train_idx]
             y_train = y_subbed_list[train_idx]
+            if len(X_test.shape) > 2:
+                X_train = X_train.reshape(X_train.shape[0] * X_train.shape[1], X_train.shape[2])
+                y_train = y_train.ravel()
             random_indexed = np.random.shuffle(y_train)
             X_train = np.squeeze(X_train[random_indexed])
             y_train = np.squeeze(y_train[random_indexed])
+            print(f"X_train shape: {X_train.shape}")
+            print(f"y_train shape: {y_train.shape}")
             clf.fit(X_train, y_train)
             clf.n_estimators += n_est
         print(f"Prediction Test Index {test_idx}")
