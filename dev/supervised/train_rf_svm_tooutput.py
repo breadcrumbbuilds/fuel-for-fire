@@ -20,7 +20,7 @@ def main():
     train_root_path = f"{root}/prepared/train/"
     reference_data_root = f"{root}data_bcgw/"
     raw_data_root = f"{root}data_img/"
-    data_output_directory, results_output_directory = get_working_directories("KFold/Seeded")
+    data_output_directory, results_output_directory, models_output_directory = get_working_directories("KFold/Seeded")
 
     X = np.load(f'{train_root_path}/full-img.npy')
 
@@ -39,14 +39,14 @@ def main():
         y = convert_y_to_binary(target, y, cols, rows)
         y_subbed_list = create_sub_imgs(y, fold_length)
         # save the original maps to disk
-        save_subimg_maps(y_subbed_list, sub_img_shape, data_output_directory, target, "map")
+        save_subimg_maps(y_subbed_list, sub_img_shape, data_output_directory, target, "original_map")
 
         """ Initial K-Fold training """
         print("Training")
         n_est = 2
 
         initial_models = train_kfold_model(target, X_subbed_list, y_subbed_list, n_est, sub_img_shape, data_output_directory, "initial")
-        save_models(initial_models, data_output_directory, "initial_rf")
+        save_models(initial_models, models_output_directory, "initial_rf")
 
         """ Find Threshold Value """
         proba_predictions = None
@@ -56,33 +56,33 @@ def main():
             else:
                 proba_predictions = np.concatenate((proba_predictions, load_np(os.path.join(data_output_directory, f"{target}_initial_proba-prediction-{x}.npy")).ravel()))
 
-        create_seeded_percentile_models(target, X_subbed_list, proba_predictions, n_est, fold_length, sub_img_shape, data_output_directory, percentile=60)
-        create_seeded_percentile_models(target, X_subbed_list, proba_predictions, n_est, fold_length, sub_img_shape, data_output_directory, percentile=75)
-        create_seeded_percentile_models(target, X_subbed_list, proba_predictions, n_est, fold_length, sub_img_shape, data_output_directory, percentile=90)
+        create_seeded_percentile_models(target, X_subbed_list, proba_predictions, n_est, fold_length, sub_img_shape, data_output_directory, models_output_directory, percentile=60)
+        create_seeded_percentile_models(target, X_subbed_list, proba_predictions, n_est, fold_length, sub_img_shape, data_output_directory, models_output_directory, percentile=75)
+        create_seeded_percentile_models(target, X_subbed_list, proba_predictions, n_est, fold_length, sub_img_shape, data_output_directory, models_output_directory, percentile=90)
 
         mean = np.mean(proba_predictions)
         probability_map = proba_predictions > mean
         y_subbed_list = create_sub_imgs(probability_map, fold_length)
         save_subimg_maps(y_subbed_list, sub_img_shape, data_output_directory, target, f"mean-{mean}")
         seeded_models = train_kfold_model(target, X_subbed_list, y_subbed_list, n_est, sub_img_shape, data_output_directory, f"seeded-mean-{mean}")
-        save_models(seeded_models, data_output_directory, f"seeded_rf_{mean}-mean")
+        save_models(seeded_models, models_output_directory, f"seeded_rf_{mean}-mean")
 
 
-def save_models(models, data_output_directory, filename):
+def save_models(models, models_output_directory, filename):
     print("Saving Models")
     for x, model in enumerate(models):
-        path = os.path.join(data_output_directory, f"{filename}_{x}.joblib")
+        path = os.path.join(models_output_directory, f"{filename}_{x}.joblib")
         dump(model, path)
         print(f"+w {path}")
 
 
-def create_seeded_percentile_models(target, X_subbed_list, proba_predictions, n_est, fold_length, sub_img_shape, data_output_directory, percentile=50):
+def create_seeded_percentile_models(target, X_subbed_list, proba_predictions, n_est, fold_length, sub_img_shape, data_output_directory, models_output_directory, percentile=50):
     """ Creates seeded models based on the percentile passed """
     y_subbed_list = create_percentile_map(proba_predictions, percentile, fold_length)
     save_subimg_maps(y_subbed_list, sub_img_shape, data_output_directory, target, f"{percentile}-percentile_map")
     print(f"Seeded Percentile Model: {percentile}")
     seeded_models = train_kfold_model(target, X_subbed_list, y_subbed_list, n_est, sub_img_shape, data_output_directory, f"seeded-{percentile}percentile")
-    save_models(seeded_models, data_output_directory, f"seeded_rf_{percentile}-percentile")
+    save_models(seeded_models, models_output_directory, f"seeded_rf_{percentile}-percentile")
     return seeded_models
 
 
