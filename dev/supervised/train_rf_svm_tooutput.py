@@ -15,23 +15,15 @@ from sklearn.model_selection import train_test_split
 
 def main():
     """ Run From Project Root
-
-    Using K-Fold, create K Models,
-    for each model,
-    predict the class and probability of each pixel in that model's test image
-    save these results to use later
-    find the appropriate threshold for the probability prediciton
-    Use this to create a seeded map
-    Train a model with the seeded data
-    predict class and probability
     """
-
     root = "data/full/"
     train_root_path = f"{root}/prepared/train/"
     reference_data_root = f"{root}data_bcgw/"
     raw_data_root = f"{root}data_img/"
     data_output_directory, results_output_directory = get_working_directories("KFold/Seeded")
+
     X = np.load(f'{train_root_path}/full-img.npy')
+
     sub_img_shape = (4835//5,3402)
     fold_length = X.shape[0] // 5
 
@@ -46,16 +38,15 @@ def main():
         cols, rows, bands, y = read_binary(f'{reference_data_root}{targets[target]}', to_string=False)
         y = convert_y_to_binary(target, y, cols, rows)
         y_subbed_list = create_sub_imgs(y, fold_length)
-        for x, sub_img in enumerate(y_subbed_list):
-            save_np(sub_img.reshape(sub_img_shape), os.path.join(data_output_directory, f"{target}_map-{x}"))
+        # save the original maps to disk
+        save_subimg_maps(y_subbed_list, sub_img_shape, data_output_directory, target, "map")
 
         """ Initial K-Fold training """
         print("Training")
         n_est = 2
+
         initial_models = train_kfold_model(target, X_subbed_list, y_subbed_list, n_est, sub_img_shape, data_output_directory, "initial")
-        for x, model in enumerate(initial_models):
-            dump(model, os.path.join(data_output_directory, f"initial_rf_{x}.joblib"))
-            # Save the model here
+        save_models(initial_models, data_output_directory, "initial_rf")
 
         """ Find Threshold Value """
         proba_predictions = None
@@ -65,45 +56,50 @@ def main():
             else:
                 proba_predictions = np.concatenate((proba_predictions, load_np(os.path.join(data_output_directory, f"{target}_initial_proba-prediction-{x}.npy")).ravel()))
 
-        percentile_60 = np.percentile(proba_predictions, 60)
-        probability_map = proba_predictions > percentile_60
-        y_subbed_list = create_sub_imgs(probability_map, fold_length)
-        seeded_models = train_kfold_model(target, X_subbed_list, y_subbed_list, n_est, sub_img_shape, data_output_directory, "seeded-60percentile")
-        dump(seeded_model, os.path.join(data_output_directory, f"seeded_rf_{percentile_60}percentile.joblib"))
-        for x, model in enumerate(seeded_models):
-            dump(model, os.path.join(data_output_directory, f"seeded_rf_{percentile_60}percentile_{x}.joblib"))
-
-
-        percentile_75 = np.percentile(proba_predictions, 75)
-        probability_map = proba_predictions > percentile_75
-        y_subbed_list = create_sub_imgs(probability_map, fold_length)
-        seeded_models = train_kfold_model(RandomForestClassifier(**params),target, X_subbed_list, y_subbed_list, n_est, sub_img_shape, data_output_directory, "seeded-75percentile")
-        for x, model in enumerate(seeded_models):
-            dump(model, os.path.join(data_output_directory, f"seeded_rf_{percentile_75}percentile_{x}.joblib"))
-
-
-        percentile_90 = np.percentile(proba_predictions, 90)
-        probability_map = proba_predictions > percentile_90
-        y_subbed_list = create_sub_imgs(probability_map, fold_length)
-        seeded_models = train_kfold_model(target, X_subbed_list, y_subbed_list, n_est, sub_img_shape, data_output_directory, "seeded-90percentile")
-        for x, model in enumerate(seeded_models):
-            dump(model, os.path.join(data_output_directory, f"seeded_rf_{percentile_90}percentile_{x}.joblib"))
-
+        create_seeded_percentile_models(target, X_subbed_list, proba_predictions, n_est, fold_length, sub_img_shape, data_output_directory, percentile=60)
+        create_seeded_percentile_models(target, X_subbed_list, proba_predictions, n_est, fold_length, sub_img_shape, data_output_directory, percentile=75)
+        create_seeded_percentile_models(target, X_subbed_list, proba_predictions, n_est, fold_length, sub_img_shape, data_output_directory, percentile=90)
 
         mean = np.mean(proba_predictions)
         probability_map = proba_predictions > mean
         y_subbed_list = create_sub_imgs(probability_map, fold_length)
+        save_subimg_maps(y_subbed_list, sub_img_shape, data_output_directory, target, f"mean-{mean}")
         seeded_models = train_kfold_model(target, X_subbed_list, y_subbed_list, n_est, sub_img_shape, data_output_directory, f"seeded-mean-{mean}")
-        for x, model in enumerate(seeded_models):
-            dump(model, os.path.join(data_output_directory, f"seeded_rf_{mean}mean_{x}.joblib"))
+        save_models(seeded_models, data_output_directory, f"seeded_rf_{mean}-mean")
 
 
+def save_models(models, data_output_directory, filename):
+    print("Saving Models")
+    for x, model in enumerate(models):
+        path = os.path.join(data_output_directory, f"{filename}_{x}.joblib")
+        dump(model, path)
+        print(f"+w {path}")
 
-        """ Seeded K-Fold training """
+
+def create_seeded_percentile_models(target, X_subbed_list, proba_predictions, n_est, fold_length, sub_img_shape, data_output_directory, percentile=50):
+    """ Creates seeded models based on the percentile passed """
+    y_subbed_list = create_percentile_map(proba_predictions, percentile, fold_length)
+    save_subimg_maps(y_subbed_list, sub_img_shape, data_output_directory, target, f"{percentile}-percentile_map")
+    print(f"Seeded Percentile Model: {percentile}")
+    seeded_models = train_kfold_model(target, X_subbed_list, y_subbed_list, n_est, sub_img_shape, data_output_directory, f"seeded-{percentile}percentile")
+    save_models(seeded_models, data_output_directory, f"seeded_rf_{percentile}-percentile")
+    return seeded_models
+
+
+def create_percentile_map(data, percentile, fold_length):
+    """ Creates a binary map based on the percentage passed
+    Returns a list of maps, one per sub image
+    """
+    p = np.percentile(data, percentile)
+    probability_map = data > p
+    y_subbed_list = create_sub_imgs(probability_map, fold_length)
+    return y_subbed_list
 
 
 def train_kfold_model(target, X_subbed_list, y_subbed_list, n_est, sub_img_shape, data_output_directory, filename):
+    """ Creates 5 fold models, returns a list of models, one per fold """
     models = list()
+    print("Starting Training")
     for test_idx in range(5):
         print(f"Test Index: {test_idx}")
         X_test = X_subbed_list[test_idx]
@@ -143,6 +139,7 @@ def train_kfold_model(target, X_subbed_list, y_subbed_list, n_est, sub_img_shape
         save_np(class_prediction.reshape(sub_img_shape), os.path.join(data_output_directory, f"{target}_{filename}_class-prediction-{test_idx}"))
         save_np(proba_prediction.reshape(sub_img_shape), os.path.join(data_output_directory, f"{target}_{filename}_proba-prediction-{test_idx}"))
         models.append(clf)
+    print("Finished Training\n")
     return models
 
 
@@ -158,6 +155,10 @@ def create_sub_imgs(data, fold_length):
     return result
 
 
+def save_subimg_maps(y_subbed_list, sub_img_shape, data_output_directory, target, filename):
+    for x, sub_img in enumerate(y_subbed_list):
+        save_np(sub_img.reshape(sub_img_shape), os.path.join(data_output_directory, f"{target}_{filename}-{x}"))
+
 
 def save_rgb(subimgs, sub_img_shape, output_directory):
     """ Saves each subimgs RGB interpretation to output_directory """
@@ -172,8 +173,6 @@ def save_rgb(subimgs, sub_img_shape, output_directory):
         for i in range(0,3):
             rgb[:,:, i] = rescale(rgb[:,:, i], two_percent=False)
             rgb_stretched[:,:, i] = rescale(rgb[:,:, i], two_percent=True)
-        # plt.imshow(rgb)
-        # plt.show()
         save_np(rgb, os.path.join(output_directory, f"rgb_subimage-{x}"))
         save_np(rgb, os.path.join(output_directory, f"rgb_subimage-{x}-twopercentstretch"))
     print()
