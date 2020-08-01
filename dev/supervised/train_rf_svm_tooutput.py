@@ -33,7 +33,8 @@ def main():
     targets = {
         "conifer" : "CONIFER.bin",
         "water": "WATER.bin",
-        "herb" : "HERB.bin"
+        "herb" : "HERB.bin",
+        "shrub" : "SHRUB.bin"
     }
     for target in targets:
         cols, rows, bands, y = read_binary(f'{reference_data_root}{targets[target]}', to_string=False)
