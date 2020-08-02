@@ -45,7 +45,7 @@ def main():
 
         """ Initial K-Fold training """
         print("Training")
-        n_est = 250
+        n_est = 2
 
         initial_models = train_kfold_model(target, X_subbed_list, y_subbed_list, n_est, sub_img_shape, data_output_directory, "initial")
         save_models(initial_models, models_output_directory, "initial_rf")
@@ -60,6 +60,7 @@ def main():
 
         create_seeded_percentile_models(target, X_subbed_list, proba_predictions, n_est, fold_length, sub_img_shape, data_output_directory, models_output_directory, percentile=60)
         create_seeded_percentile_models(target, X_subbed_list, proba_predictions, n_est, fold_length, sub_img_shape, data_output_directory, models_output_directory, percentile=75)
+        create_seeded_percentile_models(target, X_subbed_list, proba_predictions, n_est, fold_length, sub_img_shape, data_output_directory, models_output_directory, percentile=80)
         create_seeded_percentile_models(target, X_subbed_list, proba_predictions, n_est, fold_length, sub_img_shape, data_output_directory, models_output_directory, percentile=90)
 
         mean = np.mean(proba_predictions)
@@ -91,6 +92,7 @@ def create_seeded_percentile_models(target, X_subbed_list, proba_predictions, n_
 def create_percentile_map(data, percentile, fold_length):
     """ Creates a binary map for each fold, taking the percentile of that fold
     """
+    print(f"Creating Percentile: {percentile} maps")
     y_subbed_list = list()
     for x in range(5):
         X = data[x * fold_length : (x+1) * fold_length]
@@ -135,7 +137,12 @@ def train_kfold_model(target, X_subbed_list, y_subbed_list, n_est, sub_img_shape
             y_train = np.squeeze(y_train[random_indexed])
             print(f"X_train shape: {X_train.shape}")
             print(f"y_train shape: {y_train.shape}")
-            clf.fit(X_train, y_train)
+            print(f"y_train distribution: {np.unique(y_train, return_counts=True)}")
+            try:
+                clf.fit(X_train, y_train)
+            except:
+                print("Error, perhaps y_test only contains a single value")
+                break
             clf.n_estimators += n_est
         print(f"Prediction Test Index {test_idx}")
         class_prediction = clf.predict(X_test)
@@ -160,6 +167,7 @@ def create_sub_imgs(data, fold_length):
 
 
 def save_subimg_maps(y_subbed_list, sub_img_shape, data_output_directory, target, filename):
+    print("Saving sub image maps")
     for x, sub_img in enumerate(y_subbed_list):
         save_np(sub_img.reshape(sub_img_shape), os.path.join(data_output_directory, f"{target}_{filename}-{x}"))
 
