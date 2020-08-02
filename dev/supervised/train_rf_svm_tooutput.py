@@ -89,12 +89,14 @@ def create_seeded_percentile_models(target, X_subbed_list, proba_predictions, n_
 
 
 def create_percentile_map(data, percentile, fold_length):
-    """ Creates a binary map based on the percentage passed
-    Returns a list of maps, one per sub image
+    """ Creates a binary map for each fold, taking the percentile of that fold
     """
-    p = np.percentile(data, percentile)
-    probability_map = data > p
-    y_subbed_list = create_sub_imgs(probability_map, fold_length)
+    y_subbed_list = list()
+    for x in range(5):
+        X = data[x * fold_length : (x+1) * fold_length]
+        p = np.percentile(X, percentile)
+        probability_map = X > p
+        y_subbed_list.append(probability_map)
     return y_subbed_list
 
 
