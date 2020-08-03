@@ -30,9 +30,11 @@ def main():
     X_subbed_list = create_sub_imgs(X, fold_length) # split the orig data into 5 sub images
     save_rgb(X_subbed_list, sub_img_shape, data_output_directory) # save the rgb in the output dir for later use
 
+    del X
+
     targets = {
-        "conifer" : "CONIFER.bin",
         "water": "WATER.bin",
+        "conifer" : "CONIFER.bin",
         "herb" : "HERB.bin",
         "shrub" : "SHRUB.bin"
     }
@@ -40,15 +42,16 @@ def main():
         cols, rows, bands, y = read_binary(f'{reference_data_root}{targets[target]}', to_string=False)
         y = convert_y_to_binary(target, y, cols, rows)
         y_subbed_list = create_sub_imgs(y, fold_length)
+        del y
+
         # save the original maps to disk
         save_subimg_maps(y_subbed_list, sub_img_shape, data_output_directory, target, "original_map")
 
         """ Initial K-Fold training """
         print("Training")
-        n_est = 2
+        n_est = 250
 
-        initial_models = train_kfold_model(target, X_subbed_list, y_subbed_list, n_est, sub_img_shape, data_output_directory, "initial")
-        save_models(initial_models, models_output_directory, "initial_rf")
+        train_kfold_model(target, X_subbed_list, y_subbed_list, n_est, sub_img_shape, data_output_directory, models_output_directory, "initial")
 
         """ Find Threshold Value """
         proba_predictions = None
@@ -59,7 +62,7 @@ def main():
                 proba_predictions = np.concatenate((proba_predictions, load_np(os.path.join(data_output_directory, f"{target}_initial_proba-prediction-{x}.npy")).ravel()))
 
         create_seeded_percentile_models(target, X_subbed_list, proba_predictions, n_est, fold_length, sub_img_shape, data_output_directory, models_output_directory, percentile=60)
-        create_seeded_percentile_models(target, X_subbed_list, proba_predictions, n_est, fold_length, sub_img_shape, data_output_directory, models_output_directory, percentile=75)
+        create_seeded_percentile_models(target, X_subbed_list, proba_predictions, n_est, fold_length, sub_img_shape, data_output_directory, models_output_directory, percentile=70)
         create_seeded_percentile_models(target, X_subbed_list, proba_predictions, n_est, fold_length, sub_img_shape, data_output_directory, models_output_directory, percentile=80)
         create_seeded_percentile_models(target, X_subbed_list, proba_predictions, n_est, fold_length, sub_img_shape, data_output_directory, models_output_directory, percentile=90)
 
@@ -68,15 +71,13 @@ def main():
         y_subbed_list = create_sub_imgs(probability_map, fold_length)
         save_subimg_maps(y_subbed_list, sub_img_shape, data_output_directory, target, f"mean-{mean}")
         seeded_models = train_kfold_model(target, X_subbed_list, y_subbed_list, n_est, sub_img_shape, data_output_directory, f"seeded-mean-{mean}")
-        save_models(seeded_models, models_output_directory, f"seeded_rf_{mean}-mean")
 
 
-def save_models(models, models_output_directory, filename):
-    print("Saving Models")
-    for x, model in enumerate(models):
-        path = os.path.join(models_output_directory, f"{filename}_{x}.joblib")
-        dump(model, path)
-        print(f"+w {path}")
+def save_model(model, models_output_directory, filename):
+    print("Saving Model")
+    path = os.path.join(models_output_directory, f"{filename}.joblib")
+    dump(model, path)
+    print(f"+w {path}")
 
 
 def create_seeded_percentile_models(target, X_subbed_list, proba_predictions, n_est, fold_length, sub_img_shape, data_output_directory, models_output_directory, percentile=50):
@@ -84,8 +85,7 @@ def create_seeded_percentile_models(target, X_subbed_list, proba_predictions, n_
     y_subbed_list = create_percentile_map(proba_predictions, percentile, fold_length)
     save_subimg_maps(y_subbed_list, sub_img_shape, data_output_directory, target, f"{percentile}-percentile_map")
     print(f"Seeded Percentile Model: {percentile}")
-    seeded_models = train_kfold_model(target, X_subbed_list, y_subbed_list, n_est, sub_img_shape, data_output_directory, f"seeded-{percentile}percentile")
-    save_models(seeded_models, models_output_directory, f"seeded_rf_{percentile}-percentile")
+    seeded_models = train_kfold_model(target, X_subbed_list, y_subbed_list, n_est, sub_img_shape, data_output_directory, models_output_directory, f"seeded-{percentile}percentile")
     return seeded_models
 
 
@@ -102,21 +102,17 @@ def create_percentile_map(data, percentile, fold_length):
     return y_subbed_list
 
 
-def train_kfold_model(target, X_subbed_list, y_subbed_list, n_est, sub_img_shape, data_output_directory, filename):
+def train_kfold_model(target, X_subbed_list, y_subbed_list, n_est, sub_img_shape, data_output_directory, models_output_directory, filename):
     """ Creates 5 fold models, returns a list of models, one per fold """
-    models = list()
     print("Starting Training")
     for test_idx in range(5):
         print(f"Test Index: {test_idx}")
         X_test = X_subbed_list[test_idx]
         y_test = y_subbed_list[test_idx]
-        if len(X_test.shape) > 2:
-            X_test = X_test.reshape(X_test.shape[0] * X_test.shape[1], X_test.shape[2])
-            y_test = y_test.ravel()
         params = {
                         'n_estimators': n_est,
                         'max_depth': 6,
-                        'verbose': 0,
+                        'verbose': 100,
                         'n_jobs': -1,
                         # 'bootstrap': False,
                         'oob_score': True,
@@ -135,6 +131,7 @@ def train_kfold_model(target, X_subbed_list, y_subbed_list, n_est, sub_img_shape
             random_indexed = np.random.shuffle(y_train)
             X_train = np.squeeze(X_train[random_indexed])
             y_train = np.squeeze(y_train[random_indexed])
+            del random_indexed
             print(f"X_train shape: {X_train.shape}")
             print(f"y_train shape: {y_train.shape}")
             print(f"y_train distribution: {np.unique(y_train, return_counts=True)}")
@@ -149,9 +146,8 @@ def train_kfold_model(target, X_subbed_list, y_subbed_list, n_est, sub_img_shape
         proba_prediction = clf.predict_proba(X_test)[:,1]
         save_np(class_prediction.reshape(sub_img_shape), os.path.join(data_output_directory, f"{target}_{filename}_class-prediction-{test_idx}"))
         save_np(proba_prediction.reshape(sub_img_shape), os.path.join(data_output_directory, f"{target}_{filename}_proba-prediction-{test_idx}"))
-        models.append(clf)
+        save_model(clf, models_output_directory, f"{filename}-{test_idx}")
     print("Finished Training\n")
-    return models
 
 
 def create_sub_imgs(data, fold_length):
