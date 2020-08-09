@@ -27,8 +27,9 @@ def main():
     sub_img_shape = (4835//5,3402//2)
     fold_length = X.shape[0] // 10
 
-    X_subbed_list = create_sub_imgs(X, fold_length) # split the orig data into 5 sub images
-    save_rgb(X_subbed_list, sub_img_shape, data_output_directory) # save the rgb in the output dir for later use
+    X_train_subbed, X_val_subbed = split_train_val(X, fold_length) # split the orig data into 5 sub images
+    save_rgb(X_train_subbed, sub_img_shape, data_output_directory, 'train') # save the rgb in the output dir for later use
+    save_rgb(X_train_subbed, sub_img_shape, data_output_directory, 'validation') # save the rgb in the output dir for later use
 
     del X
 
@@ -41,14 +42,11 @@ def main():
     for target in targets:
         cols, rows, bands, y = read_binary(f'{reference_data_root}{targets[target]}', to_string=False)
         y = convert_y_to_binary(target, y, cols, rows)
-        y_subbed_training, y_subbed_validation = create_sub_imgs(y, fold_length)
-
+        y_subbed_training, y_subbed_validation = split_train_val(y, fold_length)
         del y
-
         # save the original maps to disk
         save_subimg_maps(y_subbed_training, sub_img_shape, data_output_directory, target, "training_map")
         save_subimg_maps(y_subbed_validation, sub_img_shape, data_output_directory, target, "validation_map")
-
 
         """ Initial K-Fold training """
         print("Training")
@@ -233,16 +231,27 @@ def train_kfold_model(target, X_subbed_list, y_subbed_list, n_est, sub_img_shape
     print("Finished Training\n")
 
 
-def create_sub_imgs(data, fold_length):
+def split_train_val(data, fold_length):
     """ Splits X into 5 sub images of equal size and return the sub images in a list """
-    result = list()
+    train = list()
+    val = list()
     if len(data.shape) > 1:
         for x in range(10):
-            result.append(data[x * fold_length : (x+1) * fold_length, :])
+            if x % 2 == 0:
+                print(f'Training: {x}')
+                train.append(data[x * fold_length : (x+1) * fold_length, :])
+            else:
+                print(f'Validation: {x}')
+                val.append(data[x * fold_length : (x+1) * fold_length, :])
     else:
         for x in range(10):
-            result.append(data[x * fold_length : (x+1) * fold_length])
-    return result
+            if x % 2 == 0:
+                print(f'Training: {x}')
+                train.append(data[x * fold_length : (x+1) * fold_length])
+            else:
+                print(f'Validation: {x}')
+                val.append(data[x * fold_length : (x+1) * fold_length])
+    return train, val
 
 
 def save_subimg_maps(y_subbed_list, sub_img_shape, data_output_directory, target, filename):
@@ -251,7 +260,7 @@ def save_subimg_maps(y_subbed_list, sub_img_shape, data_output_directory, target
         save_np(sub_img.reshape(sub_img_shape), os.path.join(data_output_directory, f"{target}_{filename}-{x}"))
 
 
-def save_rgb(subimgs, sub_img_shape, output_directory):
+def save_rgb(subimgs, sub_img_shape, output_directory, name):
     """ Saves each subimgs RGB interpretation to output_directory """
     print("Creating RGB sub images")
     sub_imgs = list()
@@ -263,8 +272,8 @@ def save_rgb(subimgs, sub_img_shape, output_directory):
         for i in range(0,3):
             rgb[:,:, i] = rescale(rgb[:,:, i], two_percent=False)
             rgb_stretched[:,:, i] = rescale(np.copy(rgb[:,:, i]), two_percent=True)
-        save_np(rgb, os.path.join(output_directory, f"rgb_subimage-{x}"))
-        save_np(rgb, os.path.join(output_directory, f"rgb_subimage-{x}-twopercentstretch"))
+        save_np(rgb, os.path.join(output_directory, f"rgb_{name}_subimage-{x}"))
+        save_np(rgb, os.path.join(output_directory, f"rgb_{name}_subimage-{x}-twopercentstretch"))
     print()
 
 if __name__ == "__main__":
