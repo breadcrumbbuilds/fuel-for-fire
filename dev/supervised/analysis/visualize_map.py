@@ -25,7 +25,7 @@ try:
             print("concat")
             proba_predictions = np.concatenate((proba_predictions, load_np(f'{path}/{filename}')))
     if "rgb" in dirty_path:
-        plt.imshow(proba_predictions.reshape((4835,3402, 3)))
+        plt.imshow(proba_predictions.reshape((4835,3402//2, 3)))
     else:
         plt.imshow(proba_predictions.reshape((4835,1701)), cmap='gray')
 

@@ -27,5 +27,5 @@ else:
 proba_predictions = np.round(proba_predictions, decimals=1)
 plt.hist(proba_predictions, bins=10)
 plt.title("Initial RF Prediction Probability")
-plt.suptitle("")
+plt.suptitle("Probability rounded to .x")
 plt.show()
