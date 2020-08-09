@@ -7,12 +7,15 @@ import numpy as np
 
 
 single = True
-dirty_path = "/home/brad/Projects/research/fuel-for-fire/outs/KFold/Seeded/run__2020_08_07-14_50_51/data/water_85-percentile_map-2.npy"
+dirty_path = sys.argv[1]
+single = sys.argv[2] == 's'
 try:
+    if single:
+        raise Exception
     path, file = dirty_path.split('/data')
     path += '/data'
     proba_predictions = None
-    for x in range(5):
+    for x in range(10):
         filename = re.sub("-\d", f'-{x}', file)
         if proba_predictions is None:
             print("Initialize proba predictions")
@@ -33,7 +36,7 @@ except:
     print("Assuming single image passed")
     proba_predictions = load_np(dirty_path)
     x = np.unique(proba_predictions, return_counts=True)
-    plt.imshow(proba_predictions.reshape((4835//5,3402)), cmap='gray')
+    plt.imshow(proba_predictions.reshape((4835//5,3402//2)), cmap='gray')
     plt.show()
 
 # y_subbed_list = create_sub_imgs(probability_map, fold_length)

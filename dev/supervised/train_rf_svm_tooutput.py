@@ -24,11 +24,11 @@ def main():
 
     X = np.load(f'{train_root_path}/full-img.npy')
 
-    sub_img_shape = (4835//5,3402)
-    fold_length = X.shape[0] // 5
+    sub_img_shape = (4835//5,3402//2)
+    fold_length = X.shape[0] // 10
 
     X_subbed_list = create_sub_imgs(X, fold_length) # split the orig data into 5 sub images
-    save_rgb(X_subbed_list, sub_img_shape, data_output_directory) # save the rgb in the output dir for later use
+    #save_rgb(X_subbed_list, sub_img_shape, data_output_directory) # save the rgb in the output dir for later use
 
     del X
 
@@ -49,18 +49,22 @@ def main():
 
         """ Initial K-Fold training """
         print("Training")
-        n_est = 250
+        n_est = 25
 
-        train_kfold_model(target, X_subbed_list, y_subbed_list, n_est, sub_img_shape, data_output_directory, models_output_directory, "initial")
+        train_kfold_model(target, X_subbed_list, y_subbed_list, n_est, sub_img_shape, data_output_directory, models_output_directory, "initial", initial_model=True)
 
-        """ Find Threshold Value """
+        """ Each of the initial five models predicted on the validation set.
+            Take the intersection of the five models and treat that as the
+            seeded data's ground truth """
         proba_predictions = None
         for x in range(5):
+            this_prediction = load_np(os.path.join(data_output_directory, f"val_{target}_initial_proba-prediction-{x}.npy")).ravel()
             if proba_predictions is None:
-                proba_predictions = load_np(os.path.join(data_output_directory, f"{target}_initial_proba-prediction-{x}.npy")).ravel()
+                proba_predictions = this_prediction
             else:
-                proba_predictions = np.concatenate((proba_predictions, load_np(os.path.join(data_output_directory, f"{target}_initial_proba-prediction-{x}.npy")).ravel()))
-
+                proba_predictions = np.logical_and(proba_predictions, this_prediction)
+        plt.imshow(proba_predictions.reshape(4835,3402//2), cmap='gray')
+        plt.show()
         create_seeded_percentile_models(target, X_subbed_list, proba_predictions, n_est, fold_length, sub_img_shape, data_output_directory, models_output_directory, percentile=85)
         create_seeded_percentile_models(target, X_subbed_list, proba_predictions, n_est, fold_length, sub_img_shape, data_output_directory, models_output_directory, percentile=90)
         create_seeded_percentile_models(target, X_subbed_list, proba_predictions, n_est, fold_length, sub_img_shape, data_output_directory, models_output_directory, percentile=95)
@@ -113,10 +117,40 @@ def create_percentile_map(data, percentile, fold_length, seperate=False):
     return y_subbed_list
 
 
-def train_kfold_model(target, X_subbed_list, y_subbed_list, n_est, sub_img_shape, data_output_directory, models_output_directory, filename):
+def train_kfold_model(target, X_subbed_list, y_subbed_list, n_est, sub_img_shape, data_output_directory, models_output_directory, filename, initial_model=False):
     """ Creates 5 fold models, returns a list of models, one per fold """
     print("Starting Training")
-    for test_idx in range(5):
+    X_val = None
+    y_val = None
+    models = list()
+    for test_idx in range(10):
+        if test_idx % 2 != 0 and initial_model:
+            """Odd index == validation image, save for later"""
+            if X_val is None:
+                print("Initializing Validation")
+                """Not Intialized yet"""
+                X_val = X_subbed_list[test_idx]
+                y_val = y_subbed_list[test_idx]
+            else:
+                print("Concat to Validation")
+                print(X_val.shape)
+                """Add to the validation set"""
+                X_val = np.concatenate((X_val, X_subbed_list[test_idx]))
+                y_val = np.concatenate((y_val, y_subbed_list[test_idx]))
+                print(X_val.shape)
+            continue
+        else:
+            if test_idx % 2 == 0 and not initial_model:
+                """Is a seeded model, so the even images are val"""
+                if X_val is None:
+                    """Not Intialized yet"""
+                    X_val = X_subbed_list[test_idx]
+                    y_val = y_subbed_list[test_idx]
+                else:
+                    """Add to the validation set"""
+                    X_val = np.concatenate((X_val, X_subbed_list[test_idx]))
+                    y_val = np.concatenate((y_val, y_subbed_list[test_idx]))
+                continue
         print(f"Test Index: {test_idx}")
         X_test = X_subbed_list[test_idx]
         y_test = y_subbed_list[test_idx]
@@ -131,8 +165,12 @@ def train_kfold_model(target, X_subbed_list, y_subbed_list, n_est, sub_img_shape
                         'warm_start': True
                     }
         clf = RandomForestClassifier(**params)
-        for train_idx in range(5):
+        for train_idx in range(10):
             if test_idx == train_idx:
+                continue
+            if train_idx % 2 != 0 and initial_model:
+                continue
+            if train_idx % 2 == 0 and not initial_model:
                 continue
             print(f"Fitting Image {train_idx}")
             X_train = X_subbed_list[train_idx]
@@ -143,8 +181,8 @@ def train_kfold_model(target, X_subbed_list, y_subbed_list, n_est, sub_img_shape
             random_indexed = np.random.shuffle(y_train)
             X_train = np.squeeze(X_train[random_indexed])
             y_train = np.squeeze(y_train[random_indexed])
-            X_train = X_train[::10,:]
-            y_train = y_train[::10]
+            X_train = X_train[::100,:]
+            y_train = y_train[::100]
             del random_indexed
             print(f"X_train shape: {X_train.shape}")
             print(f"y_train shape: {y_train.shape}")
@@ -170,8 +208,15 @@ def train_kfold_model(target, X_subbed_list, y_subbed_list, n_est, sub_img_shape
             print("Failed to predict, moving on")
         try:
             save_model(clf, models_output_directory, f"{filename}-{test_idx}")
+            models.append(clf)
         except:
             print("Failed to save model, moving on")
+    print("Validation Prediction")
+    for idx, model in enumerate(models):
+        class_prediction = model.predict(X_val)
+        proba_prediction = model.predict_proba(X_val)[:,1]
+        save_np(class_prediction, os.path.join(data_output_directory, f"val_{target}_{filename}_class-prediction-{idx}"))
+        save_np(proba_prediction, os.path.join(data_output_directory, f"val_{target}_{filename}_proba-prediction-{idx}"))
     print("Finished Training\n")
 
 
@@ -179,10 +224,10 @@ def create_sub_imgs(data, fold_length):
     """ Splits X into 5 sub images of equal size and return the sub images in a list """
     result = list()
     if len(data.shape) > 1:
-        for x in range(5):
+        for x in range(10):
             result.append(data[x * fold_length : (x+1) * fold_length, :])
     else:
-        for x in range(5):
+        for x in range(10):
             result.append(data[x * fold_length : (x+1) * fold_length])
     return result
 
@@ -199,7 +244,6 @@ def save_rgb(subimgs, sub_img_shape, output_directory):
     sub_imgs = list()
     rgb = np.zeros((sub_img_shape[0], sub_img_shape[1], 3))
     rgb_stretched = np.zeros((sub_img_shape[0], sub_img_shape[1], 3))
-
     for x, data in enumerate(subimgs):
         for i in range(0,3):
             rgb[:,:, i] = data[:, 4 - i].reshape(sub_img_shape)
