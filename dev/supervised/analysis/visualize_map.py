@@ -15,9 +15,12 @@ try:
         raise Exception
     path, file = dirty_path.split('/data')
     path += '/data'
+    print(path, file)
     proba_predictions = None
     for x in range(5):
-        filename = re.sub("-\d", f'-{x}', file)
+        print(file)
+        filename = re.sub("_\d", f'_{x}', file)
+        print(filename)
         if proba_predictions is None:
             print("Initialize proba predictions")
             proba_predictions = load_np(f'{path}/{filename}')
@@ -36,7 +39,6 @@ try:
 except:
     print("Assuming single image passed")
     proba_predictions = load_np(dirty_path)
-    print(proba_predictions)
     x = np.unique(proba_predictions, return_counts=True)
     if "val" in filename:
         plt.imshow(proba_predictions.reshape((4835//5,3402//2)), cmap='gray')
