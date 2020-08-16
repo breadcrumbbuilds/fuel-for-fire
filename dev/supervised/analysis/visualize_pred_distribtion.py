@@ -7,24 +7,34 @@ import numpy as np
 
 single = False
 dirty_path = sys.argv[1]
-
+target = sys.argv[2]
+percentile = sys.argv[3]
+type= sys.argv[4]
+pattern = f'val_{target}_seeded-{percentile}percentile_{type}-prediction_xxx.npy'
 if single:
     proba_predictions = load_np(dirty_path)
 else:
-    path, file = dirty_path.split('/data')
-    path += '/data'
     proba_predictions = None
     for x in range(5):
-        filename = re.sub("-\d", f'-{x}', file)
+        filename = pattern.replace('xxx', str(x))
         if proba_predictions is None:
             print("Initialize proba predictions")
-            proba_predictions = load_np(f'{path}/{filename}')
+            proba_predictions = load_np(f'{dirty_path}/{filename}')
 
         else:
             print("concat")
-            proba_predictions = np.concatenate((proba_predictions, load_np(f'{path}/{filename}')))
+            proba_predictions = np.concatenate((proba_predictions, load_np(f'{dirty_path}/{filename}')))
+max = 0
+for x in proba_predictions:
+    if x > max:
+        max = x
 
-proba_predictions = np.round(proba_predictions, decimals=1)
+print(max)
+
+try:
+    proba_predictions = np.round(proba_predictions, decimals=2)
+except:
+    pass
 plt.hist(proba_predictions, bins=10)
 plt.title("Initial RF Prediction Probability")
 plt.suptitle("Probability rounded to .x")
