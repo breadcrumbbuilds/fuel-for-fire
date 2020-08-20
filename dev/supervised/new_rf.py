@@ -46,7 +46,7 @@ def main():
         # save the original maps to disk
         save_subimg_maps(y_train_subbed, sub_img_shape, data_output_directory, target, "training_map")
         save_subimg_maps(y_validation_subbed, sub_img_shape, data_output_directory, target, "validation_map")
-        n_est = 250
+        n_est = 10000
         train_kfold_model(target, X_train_subbed, y_train_subbed, X_val_subbed, y_validation_subbed, n_est, sub_img_shape, data_output_directory, models_output_directory, "initial", initial_model=True)
         proba_predictions = None
         predictions_list = list()
@@ -59,16 +59,11 @@ def main():
                 full_pred = np.concatenate((full_pred, this_prediction))
 
 
-        create_seeded_percentile_models(target, X_val_subbed, full_pred, X_train_subbed, y_train_subbed, n_est, fold_length, sub_img_shape, data_output_directory, models_output_directory, percentile=50)
-        create_seeded_percentile_models(target, X_val_subbed, full_pred, X_train_subbed, y_train_subbed, n_est, fold_length, sub_img_shape, data_output_directory, models_output_directory, percentile=75)
+        # create_seeded_percentile_models(target, X_val_subbed, full_pred, X_train_subbed, y_train_subbed, n_est, fold_length, sub_img_shape, data_output_directory, models_output_directory, percentile=50)
+        # create_seeded_percentile_models(target, X_val_subbed, full_pred, X_train_subbed, y_train_subbed, n_est, fold_length, sub_img_shape, data_output_directory, models_output_directory, percentile=75)
         create_seeded_percentile_models(target, X_val_subbed, full_pred, X_train_subbed, y_train_subbed, n_est, fold_length, sub_img_shape, data_output_directory, models_output_directory, percentile=90)
         create_seeded_percentile_models(target, X_val_subbed, full_pred, X_train_subbed, y_train_subbed, n_est, fold_length, sub_img_shape, data_output_directory, models_output_directory, percentile=95)
         create_seeded_percentile_models(target, X_val_subbed, full_pred, X_train_subbed, y_train_subbed, n_est, fold_length, sub_img_shape, data_output_directory, models_output_directory, percentile=99)
-    # mean = np.mean(proba_predictions)
-    # probability_map = proba_predictions > mean
-    # y_subbed_list = create_sub_imgs(probability_map, fold_length)
-    # save_subimg_maps(y_subbed_list, sub_img_shape, data_output_directory, target, f"mean-{mean}")
-    # seeded_models = train_kfold_model(target, X_subbed_list, y_subbed_list, n_est, sub_img_shape, data_output_directory, models_output_directory, f"seeded-mean-{mean}")
 
 
 def save_model(model, models_output_directory, filename):
@@ -103,55 +98,48 @@ def train_kfold_model(target, X_training_list, y_training_list, X_val_list, y_va
     """ Creates 5 fold models, returns a list of models, one per fold """
     print("Starting Training")
     models = list()
+    class_weight = {0: 1.,
+                1: 2.}
     params = {
                         'n_estimators': n_est,
-                        'max_features': 0.5,
+                        # 'max_features': 0.5,
                         'max_depth': 3,
                         'verbose': 0,
                         'n_jobs': -1,
+                        'class_weight' : class_weight,
                         # 'bootstrap': False,
                         'oob_score': True,
                         'warm_start': True
                     }
     clf = RandomForestClassifier(**params)
-    for test_idx in range(5):
-        """ Hold out the test image """
-        print(f"Test Index: {test_idx}")
-        X_test = X_training_list[test_idx]
-        y_test = y_training_list[test_idx]
-        X_train_all = None
-        y_train_all = None
-        for train_idx in range(5):
-            if test_idx == train_idx:
-                continue
+    X_train_all = None
+    y_train_all = None
+    for train_idx in range(5):
+        X_train = X_training_list[train_idx]
+        y_train = y_training_list[train_idx]
+        random_indexed = np.random.shuffle(y_train)
+        X_train = np.squeeze(X_train[random_indexed])
+        y_train = np.squeeze(y_train[random_indexed])
+        X_train = X_train.reshape(X_train.shape[0] * X_train.shape[1], X_train.shape[2])
+        if len(y_train.shape) > 1:
+            y_train = y_train.ravel()
+        del random_indexed
+        if X_train_all is None:
+            X_train_all = X_train
+            y_train_all = y_train
+        else:
+            X_train_all = np.concatenate((X_train_all, X_train))
+            y_train_all = np.concatenate((y_train_all, y_train))
+    print(f"X_train shape: {X_train_all.shape}")
+    print(f"y_train shape: {y_train_all.shape}")
+    vals, counts = np.unique(y_train_all, return_counts=True)
+    print(f"y_train distribution: \n{vals}\n{counts}")
+    try:
+        clf.fit(X_train_all, y_train_all)
+        clf.n_estimators += n_est
+    except Exception as e:
 
-            X_train = X_training_list[train_idx]
-            y_train = y_training_list[train_idx]
-            random_indexed = np.random.shuffle(y_train)
-            X_train = np.squeeze(X_train[random_indexed])
-            y_train = np.squeeze(y_train[random_indexed])
-
-            X_train = X_train.reshape(X_train.shape[0] * X_train.shape[1], X_train.shape[2])
-
-            if len(y_train.shape) > 1:
-                y_train = y_train.ravel()
-            del random_indexed
-            if X_train_all is None:
-                X_train_all = X_train
-                y_train_all = y_train
-            else:
-                X_train_all = np.concatenate((X_train_all, X_train))
-                y_train_all = np.concatenate((y_train_all, y_train))
-        print(f"X_train shape: {X_train_all.shape}")
-        print(f"y_train shape: {y_train_all.shape}")
-        vals, counts = np.unique(y_train_all, return_counts=True)
-        print(f"y_train distribution: \n{vals}\n{counts}")
-        try:
-            clf.fit(X_train_all, y_train_all)
-            clf.n_estimators += n_est
-        except Exception as e:
-
-            print(f"Error, skipping image: {e}")
+        print(f"Error, skipping image: {e}")
     save_model(clf, models_output_directory, f"{target}-{filename}")
     print("Validation Prediction")
     for idx_i, X_val in enumerate(X_val_list):

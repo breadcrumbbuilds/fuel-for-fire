@@ -21,62 +21,45 @@ def main():
 
     """ Top row, RGB and Original Maps """
 
+    try:
+        orig_map = read_sub_imgs(dir, orig_map_pattern, 'training', target=target)
+        axes[0][0].set_title("Training Orig Reference")
+        axes[0][0].imshow(orig_map, cmap='gray',  vmin=0, vmax=1)
 
-    orig_map = read_sub_imgs(dir, orig_map_pattern, 'training', target=target)
-    axes[0][0].set_title("Training Orig Reference")
-    axes[0][0].imshow(orig_map, cmap='gray',  vmin=0, vmax=1)
+        rgb_train = read_full_img(dir, rgb_pattern, 'training')
+        axes[0][1].set_title("Training RGB")
+        axes[0][1].imshow(rgb_train)
 
-    rgb_train = read_full_img(dir, rgb_pattern, 'training')
-    axes[0][1].set_title("Training RGB")
-    axes[0][1].imshow(rgb_train)
+        rgb_val = read_full_img(dir, rgb_pattern, 'validation')
+        axes[0][2].set_title("Val RGB")
+        axes[0][2].imshow(rgb_val)
 
-    rgb_val = read_full_img(dir, rgb_pattern, 'validation')
-    axes[0][2].set_title("Val RGB")
-    axes[0][2].imshow(rgb_val)
+        val_map = read_sub_imgs(dir, orig_map_pattern, 'validation', target=target)
+        axes[0][3].set_title("Val Orig Reference")
+        axes[0][3].imshow(val_map, cmap='gray',  vmin=0, vmax=1)
 
-    val_map = read_sub_imgs(dir, orig_map_pattern, 'validation', target=target)
-    axes[0][3].set_title("Val Orig Reference")
-    axes[0][3].imshow(val_map, cmap='gray',  vmin=0, vmax=1)
+        """ Second Row, Right to Left, Initial Pred, The Map """
 
-    """ Second Row, Right to Left, Initial Pred, The Map """
+        val_pred = read_sub_imgs(dir, val_pred_pattern, 'validation', target=target).reshape(4835, 3402//2)
+        axes[1][3].set_title(f"Initial Model Val Prediction")
+        axes[1][3].imshow(val_pred, cmap='gray', vmin=0, vmax=1)
 
-    val_pred = read_sub_imgs(dir, val_pred_pattern, 'validation', target=target).reshape(4835, 3402//2)
-    axes[1][3].set_title(f"Initial Model Val Prediction")
-    axes[1][3].imshow(val_pred, cmap='gray', vmin=0, vmax=1)
+        seeded_map = read_sub_imgs(dir, val_map_pattern, 'validation', target=target).reshape(4835, 3402//2)
+        axes[1][2].set_title(f"{percentile}th Percentile Reference")
+        axes[1][2].imshow(seeded_map, cmap='gray', vmin=0, vmax=1)
 
-    seeded_map = read_sub_imgs(dir, val_map_pattern, 'validation', target=target).reshape(4835, 3402//2)
-    axes[1][2].set_title(f"{percentile}th Percentile Reference")
-    axes[1][2].imshow(seeded_map, cmap='gray', vmin=0, vmax=1)
+        seeded_pred_proba = read_sub_imgs(dir, seeded_pred_pattern, 'validation', target=target, type='proba').reshape(4835, 3402//2)
+        axes[1][1].set_title(f"{percentile}th Percentile Prediction")
+        axes[1][1].imshow(seeded_pred_proba, cmap='gray',  vmin=0, vmax=1)
 
-    seeded_pred_proba = read_sub_imgs(dir, seeded_pred_pattern, 'validation', target=target, type='proba').reshape(4835, 3402//2)
-    axes[1][1].set_title(f"{percentile}th Percentile Prediction")
-    axes[1][1].imshow(seeded_pred_proba, cmap='gray',  vmin=0, vmax=1)
-
-    seeded_pred_class = read_sub_imgs(dir, seeded_pred_pattern, 'validation', target=target, type='class').reshape(4835, 3402//2)
-    axes[1][0].set_title(f"{percentile}th Percentile Prediction")
-    axes[1][0].imshow(seeded_pred_class, cmap='gray',  vmin=0, vmax=1)
-
-
-    # model_num = '0'
-    # axes[1][1].set_title(f"Validation Model {model_num} Prediction")
-    # axes[1][1].imshow(val_pred)
+        seeded_pred_class = read_sub_imgs(dir, seeded_pred_pattern, 'validation', target=target, type='class').reshape(4835, 3402//2)
+        axes[1][0].set_title(f"{percentile}th Percentile Prediction")
+        axes[1][0].imshow(seeded_pred_class, cmap='gray',  vmin=0, vmax=1)
 
 
-    # initial_pred = read_sub_imgs(dir, orig_pred_pattern, orig_pred_pattern, target='water').reshape(4835, 3402//2)
-    # axes[0][2].set_title("Initial Model Test Prediciton")
-    # axes[0][2].imshow(initial_pred, cmap='gray')
-
-
-    """ Building the Map for the Seeded model """
-
-
-
-    # axes[2][0].set_title(f"Training Orig Reference")
-    # axes[2][0].imshow(orig_map, cmap='gray')
-
-
-
-
+    except Exception as e:
+        # Let's just show whatever has worked so far
+        print(e)
 
     plt.tight_layout()
     plt.show()

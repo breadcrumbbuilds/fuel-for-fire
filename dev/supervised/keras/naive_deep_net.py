@@ -1,5 +1,3 @@
-
-import cv2
 from keras import utils
 from keras import regularizers
 from keras.wrappers.scikit_learn import KerasClassifier
@@ -19,10 +17,20 @@ import tensorflow as tf
 import time
 import sys
 import os.path
-sys.path.append(
-    os.path.abspath(os.path.join(os.path.dirname(__file__), os.path.pardir)))
-from Utils.Misc import read_binary
+
+import os
+import time
+import numpy as np
+import matplotlib.pyplot as plt
+import cv2
+import copy
+import math
+import sys
+from joblib import dump, load
+sys.path.append(os.curdir) # so python can find Utils
+from Utils.Misc import *
 from Utils.Helper import rescale, create_batch_generator
+
 # TO VIEW MODEL PERFORMANCE IN BROWSER RUN
 #
 # FROM ROOT DIR
@@ -31,7 +39,7 @@ root_path = "data/zoom/"
 reference_data_root = f"{root_path}data_bcgw/"
 raw_data_root = f"{root_path}data_img/"
 
-def create_model(input_dim, output_dim, test=False):
+def create_model(input_dim=11, output_dim=1, test=False):
     if test:
         return tf.keras.models.Sequential([
     tf.keras.layers.Dense(input_dim),
@@ -41,22 +49,25 @@ def create_model(input_dim, output_dim, test=False):
     else:
         return tf.keras.models.Sequential([
     tf.keras.layers.Dense(input_dim),
-    tf.keras.layers.Dense(256, activation='relu', kernel_initializer="he_normal", kernel_regularizer=regularizers.l2(0.001)),
-    tf.keras.layers.BatchNormalization(),
-    tf.keras.layers.Dense(512, activation='relu', kernel_initializer="he_normal", kernel_regularizer=regularizers.l2(0.001)),#, kernel_initializer=regularizers.l2(0.001)),
-    tf.keras.layers.BatchNormalization(),
-    tf.keras.layers.Dense(1024, activation='relu', kernel_initializer="he_normal", kernel_regularizer=regularizers.l2(0.001)),#, kernel_initializer=regularizers.l2(0.001)),
-    tf.keras.layers.BatchNormalization(),
-    tf.keras.layers.Dense(2048, activation='relu', kernel_initializer="he_normal", kernel_regularizer=regularizers.l2(0.001)),
-    tf.keras.layers.BatchNormalization(),
-    tf.keras.layers.Dense(4096, activation='relu', kernel_initializer="he_normal", kernel_regularizer=regularizers.l2(0.001)),
-    tf.keras.layers.BatchNormalization(),
-    tf.keras.layers.Dense(8192, activation='relu', kernel_initializer="he_normal", kernel_regularizer=regularizers.l2(0.001)),
-    tf.keras.layers.BatchNormalization(),
-    tf.keras.layers.Dense(16384, activation='relu', kernel_initializer="he_normal", kernel_regularizer=regularizers.l2(0.001)),
-    tf.keras.layers.BatchNormalization(),
+    tf.keras.layers.Dense(32, activation='relu'),
+    tf.keras.layers.Dense(32, activation='relu'),
+    tf.keras.layers.Dense(32, activation='relu'),
+
+    # tf.keras.layers.BatchNormalization(),
+    # tf.keras.layers.Dense(512, activation='relu'),#, kernel_initializer=regularizers.l2(0.001)),
+    # # tf.keras.layers.BatchNormalization(),
+    # tf.keras.layers.Dense(1024, activation='relu'),#, kernel_initializer=regularizers.l2(0.001)),
+    # # tf.keras.layers.BatchNormalization(),
+    # tf.keras.layers.Dense(2048, activation='relu'),
+    # # tf.keras.layers.BatchNormalization(),
+    # tf.keras.layers.Dense(4096, activation='relu'),
+    # # tf.keras.layers.BatchNormalization(),
+    # tf.keras.layers.Dense(8192, activation='relu'),
+    # # tf.keras.layers.BatchNormalization(),
+    # tf.keras.layers.Dense(16384, activation='relu'),
+    # # tf.keras.layers.BatchNormalization(),
     # tf.keras.layers.Dropout(0.2),
-    tf.keras.layers.Dense(output_dim, activation='softmax')
+    tf.keras.layers.Dense(output_dim, activation='sigmoid')
   ])
 
 
@@ -72,88 +83,108 @@ def main():
     """
     # Config
     test_size = .20
-
-    if test:
-        epochs = 10
-        batch_size = 8192
-    else:
-        epochs = 1000
-        batch_size = 256
-
+    epochs = 250
+    batch_size = 1024
     lr = 0.001
-    n_folds = 10
-    METRICS = [
-      # keras.metrics.CategoricalAccuracy(name='cat_acc'),
-      keras.metrics.TruePositives(name='tp'),
-      keras.metrics.TrueNegatives(name='tn'),
-      keras.metrics.FalsePositives(name='fp'),
-      keras.metrics.FalseNegatives(name='fn'),
-      keras.metrics.CategoricalAccuracy(name='categorical_accuracy'),
-      keras.metrics.Precision(name='precision'),
-      keras.metrics.Recall(name='recall'),
-      keras.metrics.AUC(name='auc'),
-      keras.metrics.SensitivityAtSpecificity(.95)
-]
 
-    target = {
-        "conifer": "CONIFER.bin",
-        "ccut": "CCUTBL.bin",
-        "water": "WATER.bin",
-        "broadleaf": "BROADLEAF.bin",
-        "shrub": "SHRUB.bin",
-        "mixed": "MIXED.bin",
-        "herb": "HERB.bin",
-        "exposed": "EXPOSED.bin",
-        "river": "Rivers.bin",
-        # "road" : "ROADS.bin",
-        # "vri" : "vri_s3_objid2.tif_proj.bin",
+    targets = {
+        # "conifer": "CONIFER.bin",
+        "water": "WATER.bin"
     }
 
     """----------------------------------------------------------------------------------------------------------------------------
     * Data Setup and Preprocessing
     """
-    xs, xl, xb, X = read_binary(f'{raw_data_root}S2A.bin', to_string=False)
-    X = X.reshape(xl * xs, xb)
-    X = StandardScaler().fit_transform(X)  # standardize unit variance and 0 mean
-    onehot = encode_one_hot(target, xs, xl, array=True)
+    """ Run From Project Root
+    """
+    root = "data/full/"
+    train_root_path = f"{root}/prepared/train/"
+    reference_data_root = f"{root}data_bcgw/"
+    raw_data_root = f"{root}data_img/"
+    data_output_directory, results_output_directory, models_output_directory = get_working_directories("KFold/MLP")
 
-    print("X shape", X.shape)
-    print("X dtype", X.dtype)
-    print("onehot shape", onehot.shape)
-    print("onehot dtype",onehot.dtype)
-    X_train, X_test, y_train, y_test = train_test_split(X, onehot, test_size=test_size, random_state=0)
-    X_train, X_val, y_train, y_val = train_test_split(X_train, y_train, test_size=0.125, random_state=0) # seperate val data
+    X = np.load(f'{train_root_path}/full-img.npy').reshape(4835, 3402, 11)
 
-    print("Oversampling targets...")
-    X_train, y_train = oversample(X_train, y_train, n_classes=len(target) + 1, extra_samples=50000)
+    sub_img_shape = (4835//5,3402//2)
+    fold_length = X.shape[0] * X.shape[1] // 10
+    X_train_subbed, X_val_subbed = split_train_val(X, sub_img_shape) # split the orig data into 5 sub images
+    save_rgb(X_train_subbed, sub_img_shape, data_output_directory, 'training') # save the rgb in the output dir for later use
+    save_rgb(X_val_subbed, sub_img_shape, data_output_directory, 'validation') # save the rgb in the output dir for later use
+    del X
+    """Prepare maps for training"""
+    for target in targets:
+        cols, rows, bands, y = read_binary(f'{reference_data_root}{targets[target]}', to_string=False)
+        y = convert_y_to_binary(target, y, cols, rows).reshape(rows, cols)
+        y_train_subbed, y_validation_subbed = split_train_val(y, sub_img_shape)
+        del y
+        # save the original maps to disk
+        save_subimg_maps(y_train_subbed, sub_img_shape, data_output_directory, target, "training_map")
+        save_subimg_maps(y_validation_subbed, sub_img_shape, data_output_directory, target, "validation_map")
 
-    print(np.histogram(onehot, bins=len(target) + 1))
+        train_kfold_model(target, X_train_subbed, y_train_subbed, X_val_subbed, y_validation_subbed, epochs, batch_size, lr, sub_img_shape, data_output_directory, models_output_directory, "initial", initial_model=True)
+        proba_predictions = None
+        predictions_list = list()
+        full_pred = None
+        for image_idx in range(5):
+            this_prediction = load_np(os.path.join(data_output_directory, f"val_{target}_initial_proba-prediction_{image_idx}.npy")).ravel()
+            if full_pred is None:
+                full_pred = this_prediction
+            else:
+                full_pred = np.concatenate((full_pred, this_prediction))
 
-    y_train = keras.utils.to_categorical(y_train, num_classes=len(target) + 1)
-    y_test = keras.utils.to_categorical(y_test, num_classes=len(target) + 1)
-    y_val = keras.utils.to_categorical(y_val, num_classes=len(target) + 1)
+        create_seeded_percentile_models(target, X_val_subbed, full_pred, X_train_subbed, y_train_subbed, n_est, fold_length, sub_img_shape, data_output_directory, models_output_directory, percentile=85)
 
 
-    n_features = X_train.shape[1]
-    n_classes = len(target) + 1
-    rand_seed = 123 # reproducability
-    np.random.seed(rand_seed)
-    tf.random.set_seed(rand_seed)
+"""----------------------------------------------------------------------------------------------------------------------------
+* Utility Functions
+"""
+
+def create_seeded_percentile_models(target, X_subbed_list, prediction, X_val_list, y_val_list, n_est, fold_length, sub_img_shape, data_output_directory, models_output_directory, percentile=50):
+    """ Creates seeded models based on the percentile passed """
+    y_subbed_training = create_percentile_map(prediction, percentile, fold_length, data_output_directory)
+    save_subimg_maps(y_subbed_training, sub_img_shape, data_output_directory, target, f"{percentile}-percentile_map")
+    print(f"Seeded Percentile Model: {percentile}")
+    seeded_models = train_kfold_model(target, X_subbed_list, y_subbed_training, X_val_list, y_val_list, n_est, sub_img_shape, data_output_directory, models_output_directory, f"seeded-{percentile}percentile")
+    return seeded_models
 
 
+def create_percentile_map(prediction, percentile, fold_length, data_output_directory, seperate=False):
+    """ Returns the boolean intersection of the percentile on each image in predictions list
+    """
+    y_subbed_list = list()
+    probability_map = prediction > np.percentile(prediction, percentile)
+    for idx in range(5):
+        x_start= idx * fold_length
+        x_end = (idx+1) * fold_length
+        y_subbed_list.append(probability_map[x_start : x_end])
+    return y_subbed_list
+
+
+def train_kfold_model(target, X_training_list, y_training_list, X_val_list, y_val_list, epochs, batch_size, lr, sub_img_shape, data_output_directory, models_output_directory, filename, initial_model=False):
+    """ Creates 5 fold models, returns a list of models, one per fold """
+    print("Starting Training")
+
+    METRICS = [
+        # keras.metrics.CategoricalAccuracy(name='cat_acc'),
+        keras.metrics.TruePositives(name='tp'),
+        keras.metrics.TrueNegatives(name='tn'),
+        keras.metrics.FalsePositives(name='fp'),
+        keras.metrics.FalseNegatives(name='fn'),
+        keras.metrics.Accuracy(name='accuracy'),
+        keras.metrics.Precision(name='precision'),
+        keras.metrics.Recall(name='recall'),
+        keras.metrics.AUC(name='auc'),
+        keras.metrics.SensitivityAtSpecificity(.95)
+    ]
     """----------------------------------------------------------------------------------------------------------------------------
     * Model
     """
-    model = create_model(X_train.shape[1],y_train.shape[1], test=test)
+    model = create_model(11,1)
 
-    optimizer = keras.optimizers.Nadam(learning_rate=lr, beta_1=0.9, beta_2=0.999)
-
-
+    optimizer = keras.optimizers.Nadam(learning_rate=lr, beta_1=0.9, beta_2=0.9)
     model.compile(optimizer=optimizer,
-                loss='categorical_crossentropy',
+                loss='binary_crossentropy',
                 metrics=METRICS)
-
-
     """----------------------------------------------------------------------------------------------------------------------------
     * Callbacks
     """
@@ -170,229 +201,99 @@ def main():
                                             mode='auto',
                                             baseline=None,
                                             restore_best_weights=True)
-    callbacks = [tensorboard_cb, es_cb]
-
-
+    callbacks = [tensorboard_cb]
     """----------------------------------------------------------------------------------------------------------------------------
     * Training
     """
+
+
+    class_weight = {0: 1.,
+                1: 2.}
+
+
+    X_train_all = None
+    y_train_all = None
+    for train_idx in range(5):
+        X_train = X_training_list[train_idx]
+        y_train = y_training_list[train_idx]
+        random_indexed = np.random.shuffle(y_train)
+        X_train = np.squeeze(X_train[random_indexed])
+        y_train = np.squeeze(y_train[random_indexed])
+        X_train = X_train.reshape(X_train.shape[0] * X_train.shape[1], X_train.shape[2])
+        if len(y_train.shape) > 1:
+            y_train = y_train.ravel()
+        del random_indexed
+        if X_train_all is None:
+            X_train_all = X_train
+            y_train_all = y_train
+        else:
+            X_train_all = np.concatenate((X_train_all, X_train))
+            y_train_all = np.concatenate((y_train_all, y_train))
+    X_train_all = (X_train_all - X_train_all.min(0)) / X_train_all.ptp(0)
+    print(X_train_all)
+    y_train_all = y_train_all.astype(int)
+    print(f"X_train shape: {X_train_all.shape}")
+    print(f"y_train shape: {y_train_all.shape}")
+    vals, counts = np.unique(y_train_all, return_counts=True)
+    print(f"y_train distribution: \n{vals}\n{counts}")
+    model.build(X_train_all.shape)
+    print(model.summary())
     start_fit = time.time()
-
-    history = model.fit(X_train, y_train,
-                        batch_size=batch_size,
-                        epochs=epochs,
-                        class_weight=class_weight,
-                        verbose=1,
-                        validation_split=0.0,
-                        validation_data=(X_val, y_val),
-                        shuffle=True,
-                        use_multiprocessing=True,
-                        workers=-1,
-                        callbacks=callbacks)
-
+    history = model.fit(X_train_all, y_train_all,
+        batch_size=batch_size,
+        epochs=epochs,
+        class_weight=class_weight,
+        verbose=1,
+        validation_split=0.0,
+        validation_data=(X_val_list[0].reshape(X_val_list[0].shape[0] * X_val_list[0].shape[1], X_val_list[0].shape[2]), y_val_list[0].reshape(X_val_list[0].shape[0] * X_val_list[0].shape[1])),
+        shuffle=True,
+        use_multiprocessing=True,
+        workers=-1,
+        callbacks=callbacks)
     end_fit = time.time()
 
-
     print(history.history)
-
-    # read in the larger image
-    # predict over the image
-
-    """----------------------------------------------------------------------------------------------------------------------------
-    * Evaluation
-    """
-    print("Predicting X_test")
-    # test set prediction
-    start_predict = time.time()
-    test_pred = model.predict(X_test)
-    end_predict = time.time()
-
-    # train set prediction
-    print("Predicting X_train")
-    train_pred = model.predict(X_train)
-
-    # full prediction
-    print("Predicting X")
-    pred = model.predict(X)
-
-    # Convert to one dimensional arrays of confidence and class
-    test_pred_confidence = np.amax(test_pred, axis=1)
-    test_pred_class = np.argmax(test_pred, axis=1)
-    test_pred_zipped = zip(np.argmax(y_test,axis=1), # this returns the sparse array of labels
-                           test_pred_class,
-                           test_pred_confidence)
-
-    train_pred_confidence = np.amax(train_pred, axis=1)
-    train_pred_class = np.argmax(train_pred, axis=1)
-    train_pred_zipped = zip(np.argmax(y_train,axis=1), # this returns the sparse array of labels
-                           train_pred_class,
-                           train_pred_confidence)
-
-    pred_confidence = np.amax(pred, axis=1)
-    pred_class = np.argmax(pred, axis=1)
-    pred_zipped = zip (onehot,
-                       pred_class,
-                       pred_confidence)
-
-    # time to predict the test set
-    predict_time = round(end_predict - start_predict, 2)
-    fit_time = round(end_fit - start_fit, 2)
-
-    print("Creating confusion matrices")
-    # Confusion matricces for the test and train datasets
-    confmatTest = confusion_matrix(
-        y_true=np.argmax(y_test, axis=1), y_pred=test_pred_class)
-    confmatTrain = confusion_matrix(
-        y_true=np.argmax(y_train, axis=1), y_pred=train_pred_class)
-
-    # visualization = build_vis(pred_class, onehot, (int(xl), int(xs), 3))
-
-    # fig, axs = plt.subplots(2, 3, figsize=(15, 8), sharey=False)
-
-    # ex = Rectangle((0, 0), 0, 0, fc="w", fill=False,
-    #                 edgecolor='none', linewidth=0)
-    # fig.legend([ex, ex, ex, ex, ex, ex, ex, ex, ex, ex, ex],
-    #             ("Target: %s" % "Water",
-    #             # "Test Acc.: %s" % round(test_score, 3),
-    #             # "Train Acc.: %s" % round(train_score, 3),
-    #             "Test Size: %s" % test_size,
-    #             "Train: %ss" % fit_time,
-    #             "Predict: %ss" % predict_time),
-
-    #             loc='lower right',
-    #             ncol=3)
-
-    """----------------------------------------------------------------------------------------------------------------------------
-    * Output
-    """
-
-    # Create the directory for our output
-    if not os.path.exists('outs'):
-        print('creating outs directory in root')
-        os.mkdir('outs')
-    if not os.path.exists('outs/NaiveDeepNet/'):
-        print('creating outs/NaiveDeepNet in root')
-        os.mkdir('outs/NaiveDeepNet/')
-    outdir = get_run_logdir('outs/NaiveDeepNet/')
-    if not os.path.exists(outdir):
-        os.mkdir(outdir)
-
-    print(f"Writing results to {outdir}")
-    reference_file = f'{outdir}/reference'
-    prediction_file = f'{outdir}/prediction'
-    train_cmat_file = f'{outdir}/train_confmat'
-    test_cmat_file = f'{outdir}/test_confmat'
-    history_file = f'{outdir}/history'
-    loss_file = f'{outdir}/loss'
-    train_conf_file = f'{outdir}/train_prediction'
-    val_conf_file = f'{outdir}/val_prediction'
-    summary_file = f'{outdir}/summary.txt'
-    cat_acc_file = f'{outdir}/categorical_acc'
+    save_model(model, models_output_directory, f"{target}-{filename}")
+    print("Validation Prediction")
+    for idx_i, X_val in enumerate(X_val_list):
+        X_val = X_val.reshape(X_val.shape[0] * X_val.shape[1], X_val.shape[2])
+        class_prediction = model.predict(X_val)
+        save_np(class_prediction, os.path.join(data_output_directory, f"val_{target}_{filename}_proba-prediction_{idx_i}"))
+        # proba_prediction = clf.predict_proba(X_val)[:,1] # the true values probability
+        # save_np(proba_prediction, os.path.join(data_output_directory, f"val_{target}_{filename}_proba-prediction_{idx_i}"))
+    print("Finished Training\n")
 
 
-    plt.title('Reference')
-    plt.imshow(onehot.reshape(xl, xs), cmap='gray')
-    plt.savefig(reference_file)
-    print(f'+w {reference_file}')
+def save_model(model, models_output_directory, filename):
+    print("Saving Model")
+    path = os.path.join(models_output_directory, f"{filename}.joblib")
+    dump(model, path)
+    print(f"+w {path}")
 
 
-    plt.title('Prediction')
-    plt.imshow(pred_class.reshape(xl, xs), cmap='gray')
-    plt.savefig(prediction_file)
-    print(f'+w {prediction_file}')
+def split_train_val(data, shape):
+    """ Splits X into 5 sub images of equal size and return the sub images in a list """
+    train = list()
+    val = list()
+    for x in range(5):
+            for y in range(2):
+                x_start = x * shape[0]
+                x_end = (x+1) * shape[0]
+                y_start = y * shape[1]
+                y_end = (y+1) * shape[1]
+                if len(data.shape) > 2:
+                    if y == 0:
+                        train.append(data[ x_start:x_end , y_start : y_end, :])
+                    else:
+                        val.append(data[x_start:x_end, y_start:y_end, :])
+                else:
+                    if y == 0:
+                        train.append(data[x_start:x_end , y_start : y_end])
+                    else:
+                        val.append(data[x_start:x_end, y_start:y_end])
+    return train, val
 
 
-    plt.title("Test Confusion Matrix")
-    plt.matshow(confmatTest, cmap=plt.cm.Blues, alpha=0.5)
-    plt.gcf().subplots_adjust(left=.5)
-    for i in range(confmatTest.shape[0]):
-        for j in range(confmatTest.shape[1]):
-            plt.text(x=j, y=i,
-                    s=round(confmatTest[i,j],3), fontsize=6, horizontalalignment='center')
-    labels = ['unlabeled']
-    for label in target.keys():
-        labels.append(label)
-    plt.xticks(np.arange(10), labels=labels)
-    plt.yticks(np.arange(10), labels=labels)
-    plt.tick_params('both', labelsize=8, labelrotation=45)
-    plt.xlabel('predicted label')
-    plt.ylabel('reference label', rotation=90)
-    plt.savefig(test_cmat_file)
-    print(f'+w {test_cmat_file}')
-    plt.clf()
-
-
-    plt.title("Train Confusion Matrix")
-    plt.matshow(confmatTrain, cmap=plt.cm.Blues, alpha=0.5)
-    for i in range(confmatTrain.shape[0]):
-        for j in range(confmatTrain.shape[1]):
-            plt.text(x=j, y=i,
-                    s=round(confmatTrain[i,j],3), fontsize=6, horizontalalignment='center')
-    plt.xticks(np.arange(10), labels=labels)
-    plt.yticks(np.arange(10), labels=labels)
-    plt.tick_params('both', labelsize=8, labelrotation=45)
-    plt.xlabel('predicted label')
-    plt.ylabel('reference label', rotation=90)
-    plt.margins(0.2)
-    plt.savefig(train_cmat_file)
-    print(f'+w {train_cmat_file}')
-    plt.clf()
-
-
-    plt.title('Model loss')
-    plt.plot(history.history['loss'])
-    plt.plot(history.history['val_loss'])
-    plt.ylabel('Loss')
-    plt.xlabel('Epoch')
-    plt.legend(['Train', 'Val'], loc='upper left')
-    plt.savefig(loss_file)
-    print(f'+w {loss_file}')
-    plt.clf()
-
-
-    plt.title('Train Prediciton Counts')
-    plt.plot(history.history['tp'])
-    plt.plot(history.history['fp'])
-    plt.plot(history.history['fn'])
-    plt.plot(history.history['fp'])
-    plt.ylabel('No. of Pixels', rotation=90)
-    plt.xlabel('Epoch')
-    plt.legend(['TP', 'FP', 'FN', 'FP'], loc="upper left")
-    plt.savefig(train_conf_file)
-    print(f'+w {train_conf_file}')
-    plt.clf()
-
-
-    plt.title('Validation Prediciton Counts')
-    plt.plot(history.history['val_tp'])
-    plt.plot(history.history['val_fp'])
-    plt.plot(history.history['val_fn'])
-    plt.plot(history.history['val_tn'])
-    plt.ylabel('No. of Pixels', rotation=90)
-    plt.xlabel('Epoch')
-    plt.legend(['TP', 'FP', 'FN', 'TN'], loc="upper left")
-    plt.savefig(val_conf_file)
-    print(f'+w {val_conf_file}')
-    plt.clf()
-
-
-    plt.title("Categorical Accuracy")
-    plt.plot(history.history['categorical_accuracy'])
-    plt.plot(history.history['val_categorical_accuracy'])
-    plt.ylabel('value', rotation=90)
-    plt.xlabel("Epoch")
-    plt.legend(['Train', 'Validation'])
-    plt.savefig(cat_acc_file)
-    print(f'+w {cat_acc_file}')
-    plt.clf()
-
-    with open(summary_file, 'w') as f:
-        model.summary(print_fn=lambda x: f.write(x + '\n'))
-
-
-"""----------------------------------------------------------------------------------------------------------------------------
-* Utility Functions
-"""
 
 def checkit(passed):
     print()
@@ -418,155 +319,31 @@ def one_hot_sanity_check(target, xs, xl):
         plt.show()
 
 
-def create_sub_images(X, cols, rows, bands):
-    # TODO: Be nice to automate this.. need some type of LCD function ...
-    # not sure how to automate this yet but I know that these dims will create 10 sub images
-    sub_cols = cols//2
-    sub_rows = rows//5
-    # shape of the sub images [sub_cols, sub_rows, bands]
-    print("New subimage shape (%s, %s, %s)" % (sub_cols, sub_rows, bands))
-
-    # container for the sub images
-    sub_images = np.zeros((10, sub_cols, sub_rows, bands))
-
-    # this will grab a sub set of the original image beginning with the top left corner, then the right top corner
-    # and iteratively move down the image from left to right
-
-    """
-    Original image         subimages
-    --------                --------
-    |      |                [  ][  ]
-    |      |                [  ][  ]
-    |      |                [  ][  ]
-    |      |                [  ][  ]
-    |      |                [  ][  ]
-    --------                --------
-    """
-    index = 0  # to index the container above for storing each sub image
-    for row in range(5):  # represents the 5 'rows' of this image
-        # represents the left and right side of the image split down the middle
-        for col in range(2):
-            checkit(X)
-            sub_images[index, :, :, :] = X[sub_cols * col: sub_cols *
-                                           (col + 1), sub_rows * row: sub_rows * (row + 1), :]
-            index += 1
-
-    print("images, width, height, features", sub_images.shape)
-    return sub_images
+def save_subimg_maps(y_subbed_list, sub_img_shape, data_output_directory, target, filename):
+    print("Saving sub image maps")
+    for x, sub_img in enumerate(y_subbed_list):
+        save_np(sub_img, os.path.join(data_output_directory, f"{target}-{filename}_{x}"))
 
 
-def oversample(X_train, y_train, n_classes=10, extra_samples=50000):
-
-    tmp = np.zeros((X_train.shape[0], X_train.shape[1] + 1))
-
-    tmp[:, :X_train.shape[1]] = X_train
-    tmp[:, X_train.shape[1]] = y_train
-
-    # Let's oversample each class so we don't have class imbalance
-    vals, counts = np.unique(tmp[:, X_train.shape[1]], return_counts=True)
-    maxval = np.amax(counts) + extra_samples
-
-    # WARNING, your validation data has leakage,
-    for idx in range(n_classes):
-        if(idx == 0):
-            # ignore these, they aren't labeled values
-            continue
-
-        # return the true values of a class
-        idx_class_vals_outside_while = tmp[tmp[:, X_train.shape[1]] == idx]
-
-        # oversample until we have n samples
-        while(tmp[tmp[:, X_train.shape[1]] == idx].shape[0] < maxval):
-
-            # this grows exponentially
-            idx_class_vals_inside_while = tmp[tmp[:, X_train.shape[1]] == idx]
-            # if we are halfway there, let's ease up and do things slower
-            # so our classes have similar amounts of samples
-            if idx_class_vals_inside_while.shape[0] > maxval//2:
-                tmp = np.concatenate(
-                    (tmp, idx_class_vals_outside_while), axis=0)
-            else:
-                tmp = np.concatenate(
-                    (tmp, idx_class_vals_inside_while), axis=0)
-    X_train = tmp[:, :X_train.shape[1]]
-    y_train = tmp[:, X_train.shape[1]]
-
-    return X_train, y_train
-
-
-def encode_one_hot(target, xs, xl, array=True):
-    """encodes the provided dict into a dense numpy array
-    of class values.
-
-    Caveats: The result of this encoding is dependant and naive, in that
-    any conflicts of pixel labels are not intelligently resolved. For our
-    purposes, at least until now, we don't care. If an instance belongs
-    to multiple classes, that instance will be considered a member of
-    the last class it encounters, ie, the target that comes latest
-    in the dictionary
-    """
-    if array:
-        result = np.zeros((xs*xl, len(target)))
-    else:
-        result = list()
-
-    result = np.zeros((xl * xs))
-    reslist = []
-    for idx, key in enumerate(target.keys()):
-        ones = np.ones((xl * xs))
-        s, l, b, tmp = read_binary(f"{reference_data_root}/%s" % target[key])
-
-        # same shape as the raw image
-        assert int(s) == int(xs)
-        assert int(l) == int(xl)
-
-        # last index is the targets false value
-        vals = np.sort(np.unique(tmp))
-
-        # create an array populate with the false value
-        t = ones * vals[len(vals) - 1]
-
-        if key == 'water':
-            arr = np.not_equal(tmp, t)
+def save_rgb(subimgs, sub_img_shape, output_directory, name):
+    """ Saves each subimgs RGB interpretation to output_directory """
+    print("Creating RGB sub images")
+    sub_imgs = list()
+    temp = np.zeros((sub_img_shape[0], sub_img_shape[1], 3))
+    rgb_stretched = np.zeros((sub_img_shape[0], sub_img_shape[1], 3))
+    full_img = None
+    for x, data in enumerate(subimgs):
+        rgb = np.zeros((sub_img_shape[0], sub_img_shape[1], 3))
+        for i in range(0,3):
+            rgb[:,:, i] = data[:,:, 4 - i]
+        if full_img is None:
+            full_img = rgb
         else:
-            arr = np.logical_and(tmp, t)
-        # at this stage we have an array that has
-        # ones where the class exists
-        # and zeoes where it doesn't
-        _, c = np.unique(arr, return_counts=True)
-        reslist.append(c)
-        result[arr > 0] = idx+1
-
-    return result
-
-
-def build_vis(prediction, y, shape):
-
-    visualization = np.zeros((len(y), 3))
-    for idx, pixel in enumerate(zip(prediction, y)):
-
-        # compare the prediciton to the original
-        if pixel[0] and pixel[1]:
-                # True Positive
-            visualization[idx, ] = [0, 1, 0]
-
-        elif pixel[0] and not pixel[1]:
-            # False Positive
-            visualization[idx, ] = [1, 0, 0]
-
-        elif not pixel[0] and pixel[1]:
-            # False Negative
-            visualization[idx, ] = [1, .5, 0]
-
-        elif not pixel[0] and not pixel[1]:
-            # True Negative
-            visualization[idx, ] = [0, 0, 1]
-            # visualization[idx, ] = rgb
-
-        else:
-            raise Exception("There was a problem comparing the pixel", idx)
-
-    return visualization.reshape(shape)
+            full_img = np.concatenate((full_img, rgb))
+    for i in range(0,3):
+        full_img[:,:,i] = rescale(full_img[:,:,i], two_percent=False)
+    save_np(full_img, os.path.join(output_directory, f"rgb_{name}_image-twopercentstretch"))
+    print()
 
 
 if __name__ == "__main__":
