@@ -127,7 +127,19 @@ def convert_y_to_binary(target, y, cols, rows):
     return y
 
 def get_working_directories(path):
-    """ Create the working directories for the data and results of this run """
+    """ Create the working directories for the data, results and models of this
+        run.
+
+        To use with analysis directories following training, use this scheme for
+        the path variable:
+        {algorithm}/{modification/description of algorithm}/{key parameter}/{sampling type}
+
+        example:
+        data_dir, results_dir, models_dir =
+            get_working_directories(RandmomForest/Stumps/1000-trees/unsersample)
+
+
+    """
     root_of_output = mkdir(os.path.join(os.curdir, 'outs'))
     for dir in path.split("/"):
         root_of_output = mkdir(os.path.join(root_of_output, dir))
