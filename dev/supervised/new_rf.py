@@ -11,6 +11,7 @@ sys.path.append(os.curdir) # so python can find Utils
 from Utils.Misc import *
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.model_selection import train_test_split
+from imblearn.under_sampling import RandomUnderSampler
 
 
 def main():
@@ -20,50 +21,52 @@ def main():
     train_root_path = f"{root}/prepared/train/"
     reference_data_root = f"{root}data_bcgw/"
     raw_data_root = f"{root}data_img/"
-    data_output_directory, results_output_directory, models_output_directory = get_working_directories("KFold/Seeded")
 
-    X = np.load(f'{train_root_path}/full-img.npy').reshape(4835, 3402, 11)
+    for n_est in [100, 1000, 100000]:
+        data_output_directory, results_output_directory, models_output_directory = get_working_directories(f"RandomForest/Stumps/{n_est}-trees/Iterative")
 
-    sub_img_shape = (4835//5,3402//2)
-    fold_length = X.shape[0] * X.shape[1] // 10
-    X_train_subbed, X_val_subbed = split_train_val(X, sub_img_shape) # split the orig data into 5 sub images
-    save_rgb(X_train_subbed, sub_img_shape, data_output_directory, 'training') # save the rgb in the output dir for later use
-    save_rgb(X_val_subbed, sub_img_shape, data_output_directory, 'validation') # save the rgb in the output dir for later use
-    del X
-    targets = {
-        "water": "WATER.bin",
-        "conifer": "CONIFER.bin",
-        "herb": "HERB.bin",
-        "broadleaf": "BROADLEAF.bin",
-        "shrub": "SHRUB.bin"
-    }
-    """Prepare maps for training"""
-    for target in targets:
-        cols, rows, bands, y = read_binary(f'{reference_data_root}{targets[target]}', to_string=False)
-        y = convert_y_to_binary(target, y, cols, rows).reshape(rows, cols)
-        y_train_subbed, y_validation_subbed = split_train_val(y, sub_img_shape)
-        del y
-        # save the original maps to disk
-        save_subimg_maps(y_train_subbed, sub_img_shape, data_output_directory, target, "training_map")
-        save_subimg_maps(y_validation_subbed, sub_img_shape, data_output_directory, target, "validation_map")
-        n_est = 10000
-        train_kfold_model(target, X_train_subbed, y_train_subbed, X_val_subbed, y_validation_subbed, n_est, sub_img_shape, data_output_directory, models_output_directory, "initial", initial_model=True)
-        proba_predictions = None
-        predictions_list = list()
-        full_pred = None
-        for image_idx in range(5):
-            this_prediction = load_np(os.path.join(data_output_directory, f"val_{target}_initial_proba-prediction_{image_idx}.npy")).ravel()
-            if full_pred is None:
-                full_pred = this_prediction
-            else:
-                full_pred = np.concatenate((full_pred, this_prediction))
+        X = np.load(f'{train_root_path}/full-img.npy').reshape(4835, 3402, 11)
+
+        sub_img_shape = (4835//5,3402//2)
+        fold_length = X.shape[0] * X.shape[1] // 10
+        X_train_subbed, X_val_subbed = split_train_val(X, sub_img_shape) # split the orig data into 5 sub images
+        save_rgb(X_train_subbed, sub_img_shape, data_output_directory, 'training') # save the rgb in the output dir for later use
+        save_rgb(X_val_subbed, sub_img_shape, data_output_directory, 'validation') # save the rgb in the output dir for later use
+        del X
+        targets = {
+            "water": "WATER.bin",
+            "conifer": "CONIFER.bin",
+            "herb": "HERB.bin",
+            "broadleaf": "BROADLEAF.bin",
+            "shrub": "SHRUB.bin"
+        }
+        """Prepare maps for training"""
+        for target in targets:
+            cols, rows, bands, y = read_binary(f'{reference_data_root}{targets[target]}', to_string=False)
+            y = convert_y_to_binary(target, y, cols, rows).reshape(rows, cols)
+            y_train_subbed, y_validation_subbed = split_train_val(y, sub_img_shape)
+            del y
+            # save the original maps to disk
+            save_subimg_maps(y_train_subbed, sub_img_shape, data_output_directory, target, "training_map")
+            save_subimg_maps(y_validation_subbed, sub_img_shape, data_output_directory, target, "validation_map")
+
+            train_kfold_model(target, X_train_subbed, y_train_subbed, X_val_subbed, y_validation_subbed, n_est, sub_img_shape, data_output_directory, models_output_directory, "initial", initial_model=True, subsample=True)
+            proba_predictions = None
+            predictions_list = list()
+            full_pred = None
+            for image_idx in range(5):
+                this_prediction = load_np(os.path.join(data_output_directory, f"val_{target}_initial_proba-prediction_{image_idx}.npy")).ravel()
+                if full_pred is None:
+                    full_pred = this_prediction
+                else:
+                    full_pred = np.concatenate((full_pred, this_prediction))
 
 
-        # create_seeded_percentile_models(target, X_val_subbed, full_pred, X_train_subbed, y_train_subbed, n_est, fold_length, sub_img_shape, data_output_directory, models_output_directory, percentile=50)
-        # create_seeded_percentile_models(target, X_val_subbed, full_pred, X_train_subbed, y_train_subbed, n_est, fold_length, sub_img_shape, data_output_directory, models_output_directory, percentile=75)
-        create_seeded_percentile_models(target, X_val_subbed, full_pred, X_train_subbed, y_train_subbed, n_est, fold_length, sub_img_shape, data_output_directory, models_output_directory, percentile=90)
-        create_seeded_percentile_models(target, X_val_subbed, full_pred, X_train_subbed, y_train_subbed, n_est, fold_length, sub_img_shape, data_output_directory, models_output_directory, percentile=95)
-        create_seeded_percentile_models(target, X_val_subbed, full_pred, X_train_subbed, y_train_subbed, n_est, fold_length, sub_img_shape, data_output_directory, models_output_directory, percentile=99)
+            # create_seeded_percentile_models(target, X_val_subbed, full_pred, X_train_subbed, y_train_subbed, n_est, fold_length, sub_img_shape, data_output_directory, models_output_directory, percentile=50)
+            # create_seeded_percentile_models(target, X_val_subbed, full_pred, X_train_subbed, y_train_subbed, n_est, fold_length, sub_img_shape, data_output_directory, models_output_directory, percentile=75)
+            create_seeded_percentile_models(target, X_val_subbed, full_pred, X_train_subbed, y_train_subbed, n_est, fold_length, sub_img_shape, data_output_directory, models_output_directory, percentile=90, subsample=True)
+            create_seeded_percentile_models(target, X_val_subbed, full_pred, X_train_subbed, y_train_subbed, n_est, fold_length, sub_img_shape, data_output_directory, models_output_directory, percentile=95, subsample=True)
+            create_seeded_percentile_models(target, X_val_subbed, full_pred, X_train_subbed, y_train_subbed, n_est, fold_length, sub_img_shape, data_output_directory, models_output_directory, percentile=99, subsample=True)
 
 
 def save_model(model, models_output_directory, filename):
@@ -73,12 +76,12 @@ def save_model(model, models_output_directory, filename):
     print(f"+w {path}")
 
 
-def create_seeded_percentile_models(target, X_subbed_list, prediction, X_val_list, y_val_list, n_est, fold_length, sub_img_shape, data_output_directory, models_output_directory, percentile=50):
+def create_seeded_percentile_models(target, X_subbed_list, prediction, X_val_list, y_val_list, n_est, fold_length, sub_img_shape, data_output_directory, models_output_directory, percentile=50, subsample=False):
     """ Creates seeded models based on the percentile passed """
     y_subbed_training = create_percentile_map(prediction, percentile, fold_length, data_output_directory)
     save_subimg_maps(y_subbed_training, sub_img_shape, data_output_directory, target, f"{percentile}-percentile_map")
     print(f"Seeded Percentile Model: {percentile}")
-    seeded_models = train_kfold_model(target, X_subbed_list, y_subbed_training, X_val_list, y_val_list, n_est, sub_img_shape, data_output_directory, models_output_directory, f"seeded-{percentile}percentile")
+    seeded_models = train_kfold_model(target, X_subbed_list, y_subbed_training, X_val_list, y_val_list, n_est, sub_img_shape, data_output_directory, models_output_directory, f"seeded-{percentile}percentile", subsample=subsample)
     return seeded_models
 
 
@@ -94,7 +97,7 @@ def create_percentile_map(prediction, percentile, fold_length, data_output_direc
     return y_subbed_list
 
 
-def train_kfold_model(target, X_training_list, y_training_list, X_val_list, y_val_list, n_est, sub_img_shape, data_output_directory, models_output_directory, filename, initial_model=False):
+def train_kfold_model(target, X_training_list, y_training_list, X_val_list, y_val_list, n_est, sub_img_shape, data_output_directory, models_output_directory, filename, initial_model=False, subsample=False):
     """ Creates 5 fold models, returns a list of models, one per fold """
     print("Starting Training")
     models = list()
@@ -130,11 +133,17 @@ def train_kfold_model(target, X_training_list, y_training_list, X_val_list, y_va
         else:
             X_train_all = np.concatenate((X_train_all, X_train))
             y_train_all = np.concatenate((y_train_all, y_train))
-    print(f"X_train shape: {X_train_all.shape}")
-    print(f"y_train shape: {y_train_all.shape}")
-    vals, counts = np.unique(y_train_all, return_counts=True)
-    print(f"y_train distribution: \n{vals}\n{counts}")
+
     try:
+        if subsample:
+            print("Subsampling enabled")
+            rus = RandomUnderSampler(random_state=0)
+            X_train_all, y_train_all = rus.fit_resample(X_train_all, y_train_all)
+        print(f"X_train shape: {X_train_all.shape}")
+        print(f"y_train shape: {y_train_all.shape}")
+        vals, counts = np.unique(y_train_all, return_counts=True)
+        print(f"y_train distribution: \n{vals}\n{counts}")
+
         clf.fit(X_train_all, y_train_all)
         clf.n_estimators += n_est
     except Exception as e:
