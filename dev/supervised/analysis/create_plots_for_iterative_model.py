@@ -7,7 +7,7 @@ from Utils.Misc import *
 
 def main():
 
-    dir = sys.argv[1]
+    dir = sys.argv[1] # should be the path from the root of the project
     target = sys.argv[2]
     percentile = sys.argv[3]
     rgb_pattern = f'rgb_side_image-twopercentstretch.npy'
@@ -17,44 +17,54 @@ def main():
     val_map_pattern = f'target-{percentile}-percentile_map_xxx.npy'
     seeded_pred_pattern = f'val_target_seeded-{percentile}percentile_type-prediction_xxx.npy'
 
+    try:
+        split_dir = dir.split('/')
+        algo = split_dir[2]
+        desc = split_dir[3]
+        param = split_dir[4]
+
+    except IndexError as e:
+        pass
     figure, axes = plt.subplots(2, 4, sharex=True, figsize=(20,10))
+    figure.suptitle(f'Binary {target} classification {algo} {desc} {param}', fontsize=14, fontweight='bold')
 
     """ Top row, RGB and Original Maps """
 
     try:
-        orig_map = read_sub_imgs(dir, orig_map_pattern, 'training', target=target)
-        axes[0][0].set_title("Training Orig Reference")
-        axes[0][0].imshow(orig_map, cmap='gray',  vmin=0, vmax=1)
 
         rgb_train = read_full_img(dir, rgb_pattern, 'training')
-        axes[0][1].set_title("Training RGB")
-        axes[0][1].imshow(rgb_train)
+        axes[0][0].set_title("Training RGB")
+        axes[0][0].imshow(rgb_train)
+
 
         rgb_val = read_full_img(dir, rgb_pattern, 'validation')
-        axes[0][2].set_title("Val RGB")
-        axes[0][2].imshow(rgb_val)
+        axes[0][1].set_title("Val RGB")
+        axes[0][1].imshow(rgb_val)
+
+        orig_map = read_sub_imgs(dir, orig_map_pattern, 'training', target=target)
+        axes[0][2].set_title("Training Orig Reference")
+        axes[0][2].imshow(orig_map, cmap='gray',  vmin=0, vmax=1)
 
         val_map = read_sub_imgs(dir, orig_map_pattern, 'validation', target=target)
         axes[0][3].set_title("Val Orig Reference")
         axes[0][3].imshow(val_map, cmap='gray',  vmin=0, vmax=1)
 
         """ Second Row, Right to Left, Initial Pred, The Map """
-
         val_pred = read_sub_imgs(dir, val_pred_pattern, 'validation', target=target).reshape(4835, 3402//2)
-        axes[1][3].set_title(f"Initial Model Val Prediction")
-        axes[1][3].imshow(val_pred, cmap='gray', vmin=0, vmax=1)
+        axes[1][0].set_title(f"Initial Model Val Prediction")
+        axes[1][0].imshow(val_pred, cmap='gray', vmin=0, vmax=1)
 
         seeded_map = read_sub_imgs(dir, val_map_pattern, 'validation', target=target).reshape(4835, 3402//2)
-        axes[1][2].set_title(f"{percentile}th Percentile Reference")
-        axes[1][2].imshow(seeded_map, cmap='gray', vmin=0, vmax=1)
+        axes[1][1].set_title(f"{percentile}th Percentile Reference")
+        axes[1][1].imshow(seeded_map, cmap='gray', vmin=0, vmax=1)
 
         seeded_pred_proba = read_sub_imgs(dir, seeded_pred_pattern, 'validation', target=target, type='proba').reshape(4835, 3402//2)
-        axes[1][1].set_title(f"{percentile}th Percentile Prediction")
-        axes[1][1].imshow(seeded_pred_proba, cmap='gray',  vmin=0, vmax=1)
+        axes[1][2].set_title(f"{percentile}th Percentile Pred Probability")
+        axes[1][2].imshow(seeded_pred_proba, cmap='gray',  vmin=0, vmax=1)
 
         seeded_pred_class = read_sub_imgs(dir, seeded_pred_pattern, 'validation', target=target, type='class').reshape(4835, 3402//2)
-        axes[1][0].set_title(f"{percentile}th Percentile Prediction")
-        axes[1][0].imshow(seeded_pred_class, cmap='gray',  vmin=0, vmax=1)
+        axes[1][3].set_title(f"{percentile}th Percentile Pred Class")
+        axes[1][3].imshow(seeded_pred_class, cmap='gray',  vmin=0, vmax=1)
 
 
     except Exception as e:
