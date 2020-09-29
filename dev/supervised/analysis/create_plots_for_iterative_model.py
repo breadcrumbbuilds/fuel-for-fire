@@ -16,17 +16,19 @@ def main():
     val_pred_pattern = f'val_target_initial_proba-prediction_xxx.npy'
     val_map_pattern = f'target-{percentile}-percentile_map_xxx.npy'
     seeded_pred_pattern = f'val_target_seeded-{percentile}percentile_type-prediction_xxx.npy'
-
+    out_dir = dir.replace('data', 'results')
     try:
         split_dir = dir.split('/')
         algo = split_dir[2]
         desc = split_dir[3]
         param = split_dir[4]
+        sampling = split_dir[5]
+
 
     except IndexError as e:
         pass
     figure, axes = plt.subplots(2, 4, sharex=True, figsize=(20,10))
-    figure.suptitle(f'Binary {target} classification {algo} {desc} {param}', fontsize=14, fontweight='bold')
+    figure.suptitle(f'Binary {target} classification {algo} {desc} {param} {sampling}', fontsize=14, fontweight='bold')
 
     """ Top row, RGB and Original Maps """
 
@@ -72,6 +74,7 @@ def main():
         print(e)
 
     plt.tight_layout()
+    plt.savefig(f'{out_dir}/{target}-{percentile}.png')
     plt.show()
 
 

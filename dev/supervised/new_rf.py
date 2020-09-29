@@ -22,8 +22,9 @@ def main():
     reference_data_root = f"{root}data_bcgw/"
     raw_data_root = f"{root}data_img/"
 
-    for n_est in [100, 1000, 100000]:
-        data_output_directory, results_output_directory, models_output_directory = get_working_directories(f"RandomForest/Stumps/{n_est}-trees/Iterative")
+
+    for n_est in [100]:
+        data_output_directory, results_output_directory, models_output_directory = get_working_directories(f"RandomForest/max-depth-16/{n_est}-trees/undersample.5/iterative")
 
         X = np.load(f'{train_root_path}/full-img.npy').reshape(4835, 3402, 11)
 
@@ -34,11 +35,7 @@ def main():
         save_rgb(X_val_subbed, sub_img_shape, data_output_directory, 'validation') # save the rgb in the output dir for later use
         del X
         targets = {
-            "water": "WATER.bin",
-            "conifer": "CONIFER.bin",
-            "herb": "HERB.bin",
-            "broadleaf": "BROADLEAF.bin",
-            "shrub": "SHRUB.bin"
+            "water": "WATER.bin"
         }
         """Prepare maps for training"""
         for target in targets:
@@ -62,10 +59,9 @@ def main():
                     full_pred = np.concatenate((full_pred, this_prediction))
 
 
-            # create_seeded_percentile_models(target, X_val_subbed, full_pred, X_train_subbed, y_train_subbed, n_est, fold_length, sub_img_shape, data_output_directory, models_output_directory, percentile=50)
-            # create_seeded_percentile_models(target, X_val_subbed, full_pred, X_train_subbed, y_train_subbed, n_est, fold_length, sub_img_shape, data_output_directory, models_output_directory, percentile=75)
-            create_seeded_percentile_models(target, X_val_subbed, full_pred, X_train_subbed, y_train_subbed, n_est, fold_length, sub_img_shape, data_output_directory, models_output_directory, percentile=90, subsample=True)
+            # create_seeded_percentile_models(target, X_val_subbed, full_pred, X_train_subbed, y_train_subbed, n_est, fold_length, sub_img_shape, data_output_directory, models_output_directory, percentile=93, subsample=True)
             create_seeded_percentile_models(target, X_val_subbed, full_pred, X_train_subbed, y_train_subbed, n_est, fold_length, sub_img_shape, data_output_directory, models_output_directory, percentile=95, subsample=True)
+            create_seeded_percentile_models(target, X_val_subbed, full_pred, X_train_subbed, y_train_subbed, n_est, fold_length, sub_img_shape, data_output_directory, models_output_directory, percentile=97, subsample=True)
             create_seeded_percentile_models(target, X_val_subbed, full_pred, X_train_subbed, y_train_subbed, n_est, fold_length, sub_img_shape, data_output_directory, models_output_directory, percentile=99, subsample=True)
 
 
@@ -101,15 +97,12 @@ def train_kfold_model(target, X_training_list, y_training_list, X_val_list, y_va
     """ Creates 5 fold models, returns a list of models, one per fold """
     print("Starting Training")
     models = list()
-    class_weight = {0: 1.,
-                1: 2.}
     params = {
                         'n_estimators': n_est,
                         # 'max_features': 0.5,
-                        'max_depth': 3,
+                        'max_depth': 16,
                         'verbose': 0,
                         'n_jobs': -1,
-                        'class_weight' : class_weight,
                         # 'bootstrap': False,
                         'oob_score': True,
                         'warm_start': True
@@ -136,16 +129,25 @@ def train_kfold_model(target, X_training_list, y_training_list, X_val_list, y_va
 
     try:
         if subsample:
-            print("Subsampling enabled")
-            rus = RandomUnderSampler(random_state=0)
-            X_train_all, y_train_all = rus.fit_resample(X_train_all, y_train_all)
-        print(f"X_train shape: {X_train_all.shape}")
-        print(f"y_train shape: {y_train_all.shape}")
-        vals, counts = np.unique(y_train_all, return_counts=True)
-        print(f"y_train distribution: \n{vals}\n{counts}")
+            for x in range(5):
+                print("Subsampling enabled")
+                print("Fitting several times...")
 
-        clf.fit(X_train_all, y_train_all)
-        clf.n_estimators += n_est
+                rus = RandomUnderSampler(sampling_strategy=.5)
+                X_train, y_train = rus.fit_resample(X_train_all, y_train_all)
+                print(f"X_train shape: {X_train.shape}")
+                print(f"y_train shape: {y_train.shape}")
+                vals, counts = np.unique(y_train, return_counts=True)
+                print(f"y_train distribution: \n{vals}\n{counts}")
+
+                clf.fit(X_train, y_train)
+                clf.n_estimators += n_est
+        else:
+            print(f"X_train shape: {X_train.shape}")
+            print(f"y_train shape: {y_train.shape}")
+            vals, counts = np.unique(y_train, return_counts=True)
+            print(f"y_train distribution: \n{vals}\n{counts}")
+            clf.fit(X_train_all, y_train_all)
     except Exception as e:
 
         print(f"Error, skipping image: {e}")
