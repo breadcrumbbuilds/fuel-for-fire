@@ -197,3 +197,85 @@ def save_np(data, filename):
 def load_np(filename):
     print(f"+r {filename}")
     return np.load(filename)
+
+
+
+def split_train_val(data, shape):
+    """ Splits X into 5 sub images of equal size and return the sub images in a list """
+    train = list()
+    val = list()
+    for x in range(5):
+        for y in range(2):
+            x_start = x * shape[0]
+            x_end = (x+1) * shape[0]
+            y_start = y * shape[1]
+            y_end = (y+1) * shape[1]
+            if len(data.shape) > 2:
+                if y == 0:
+                    train.append(data[ x_start:x_end , y_start : y_end, :])
+                else:
+                    val.append(data[x_start:x_end, y_start:y_end, :])
+            else:
+                if y == 0:
+                    train.append(data[x_start:x_end , y_start : y_end])
+                else:
+                    val.append(data[x_start:x_end, y_start:y_end])
+    return train, val
+
+
+def save_subimg_maps(y_subbed_list, sub_img_shape, data_output_directory, target, filename):
+    print("Saving sub image maps")
+    for x, sub_img in enumerate(y_subbed_list):
+        save_np(sub_img, os.path.join(data_output_directory, f"{target}-{filename}_{x}"))
+
+
+def save_rgb(subimgs, sub_img_shape, output_directory, name):
+    """ Saves each subimgs RGB interpretation to output_directory """
+    print("Creating RGB sub images")
+    sub_imgs = list()
+    temp = np.zeros((sub_img_shape[0], sub_img_shape[1], 3))
+    rgb_stretched = np.zeros((sub_img_shape[0], sub_img_shape[1], 3))
+    full_img = None
+    for x, data in enumerate(subimgs):
+        rgb = np.zeros((sub_img_shape[0], sub_img_shape[1], 3))
+        for i in range(0,3):
+            rgb[:,:, i] = data[:,:, 4 - i]
+        if full_img is None:
+            full_img = rgb
+        else:
+            full_img = np.concatenate((full_img, rgb))
+    for i in range(0,3):
+        full_img[:,:,i] = rescale(full_img[:,:,i], two_percent=False)
+    save_np(full_img, os.path.join(output_directory, f"rgb_{name}_image-twopercentstretch"))
+    print()
+
+
+def save_rgb_subbed(subimgs, sub_img_shape, output_directory, name):
+    """ Saves each subimgs RGB interpretation to output_directory """
+    print("Creating RGB sub images")
+    sub_imgs = list()
+    temp = np.zeros((sub_img_shape[0], sub_img_shape[1], 3))
+    rgb_stretched = np.zeros((sub_img_shape[0], sub_img_shape[1], 3))
+    full_img = None
+    for x, data in enumerate(subimgs):
+        rgb = np.zeros((sub_img_shape[0], sub_img_shape[1], 3))
+        for i in range(0,3):
+            rgb[:,:, i] = data[:,:, 4 - i]
+        if full_img is None:
+            full_img = rgb
+        else:
+            full_img = np.concatenate((full_img, rgb))
+    for i in range(0,3):
+        full_img[:,:,i] = rescale(full_img[:,:,i], two_percent=False)
+    save_np(full_img, os.path.join(output_directory, f"rgb_{name}_image-twopercentstretch"))
+    print()
+
+
+def save_rgb(img, shape, output_directory, name):
+    temp = np.zeros((shape[0], shape[1], 3))
+    for i in range(0,3):
+        temp[:,:, i] = img[:,:, 4 - i]
+    for i in range(0,3):
+        temp[:,:,i] = rescale(temp[:,:,i], two_percent=False)
+    save_np(temp, os.path.join(output_directory, f"rgb_{name}_twopercentstretch"))
+    print()

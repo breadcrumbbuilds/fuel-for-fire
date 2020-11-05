@@ -5,6 +5,7 @@ import matplotlib.pyplot as plt
 import cv2
 import copy
 import math
+import random
 import sys
 from joblib import dump, load
 sys.path.append(os.curdir) # so python can find Utils
@@ -22,47 +23,47 @@ def main():
     reference_data_root = f"{root}data_bcgw/"
     raw_data_root = f"{root}data_img/"
 
+    n_est = 100
 
-    for n_est in [100]:
-        data_output_directory, results_output_directory, models_output_directory = get_working_directories(f"RandomForest/max-depth-16/{n_est}-trees/undersample.5/iterative")
+    data_output_directory, results_output_directory, models_output_directory = get_working_directories(f"RandomForest/max-depth-3/{n_est}-trees/undersample.75/iterative")
 
-        X = np.load(f'{train_root_path}/full-img.npy').reshape(4835, 3402, 11)
+    X = np.load(f'{train_root_path}/full-img.npy').reshape(4835, 3402, 11)
 
-        sub_img_shape = (4835//5,3402//2)
-        fold_length = X.shape[0] * X.shape[1] // 10
-        X_train_subbed, X_val_subbed = split_train_val(X, sub_img_shape) # split the orig data into 5 sub images
-        save_rgb(X_train_subbed, sub_img_shape, data_output_directory, 'training') # save the rgb in the output dir for later use
-        save_rgb(X_val_subbed, sub_img_shape, data_output_directory, 'validation') # save the rgb in the output dir for later use
-        del X
-        targets = {
-            "water": "WATER.bin"
-        }
-        """Prepare maps for training"""
-        for target in targets:
-            cols, rows, bands, y = read_binary(f'{reference_data_root}{targets[target]}', to_string=False)
-            y = convert_y_to_binary(target, y, cols, rows).reshape(rows, cols)
-            y_train_subbed, y_validation_subbed = split_train_val(y, sub_img_shape)
-            del y
-            # save the original maps to disk
-            save_subimg_maps(y_train_subbed, sub_img_shape, data_output_directory, target, "training_map")
-            save_subimg_maps(y_validation_subbed, sub_img_shape, data_output_directory, target, "validation_map")
+    sub_img_shape = (4835//5,3402//2)
+    fold_length = X.shape[0] * X.shape[1] // 10
+    X_train_subbed, X_val_subbed = split_train_val(X, sub_img_shape) # split the orig data into 5 sub images
+    save_rgb_subbed(X_train_subbed, sub_img_shape, data_output_directory, 'training') # save the rgb in the output dir for later use
+    save_rgb_subbed(X_val_subbed, sub_img_shape, data_output_directory, 'validation') # save the rgb in the output dir for later use
+    del X
+    targets = {
+        "water": "WATER.bin"
+    }
+    """Prepare maps for training"""
+    for target in targets:
+        cols, rows, bands, y = read_binary(f'{reference_data_root}{targets[target]}', to_string=False)
+        y = convert_y_to_binary(target, y, cols, rows).reshape(rows, cols)
+        y_train_subbed, y_validation_subbed = split_train_val(y, sub_img_shape)
+        del y
+        # save the original maps to disk
+        save_subimg_maps(y_train_subbed, sub_img_shape, data_output_directory, target, "training_map")
+        save_subimg_maps(y_validation_subbed, sub_img_shape, data_output_directory, target, "validation_map")
 
-            train_kfold_model(target, X_train_subbed, y_train_subbed, X_val_subbed, y_validation_subbed, n_est, sub_img_shape, data_output_directory, models_output_directory, "initial", initial_model=True, subsample=True)
-            proba_predictions = None
-            predictions_list = list()
-            full_pred = None
-            for image_idx in range(5):
-                this_prediction = load_np(os.path.join(data_output_directory, f"val_{target}_initial_proba-prediction_{image_idx}.npy")).ravel()
-                if full_pred is None:
-                    full_pred = this_prediction
-                else:
-                    full_pred = np.concatenate((full_pred, this_prediction))
+        train_kfold_model(target, X_train_subbed, y_train_subbed, X_val_subbed, y_validation_subbed, n_est, sub_img_shape, data_output_directory, models_output_directory, "initial", initial_model=True, subsample=True)
+        proba_predictions = None
+        predictions_list = list()
+        full_pred = None
+        for image_idx in range(5):
+            this_prediction = load_np(os.path.join(data_output_directory, f"val_{target}_initial_proba-prediction_{image_idx}.npy")).ravel()
+            if full_pred is None:
+                full_pred = this_prediction
+            else:
+                full_pred = np.concatenate((full_pred, this_prediction))
 
 
-            # create_seeded_percentile_models(target, X_val_subbed, full_pred, X_train_subbed, y_train_subbed, n_est, fold_length, sub_img_shape, data_output_directory, models_output_directory, percentile=93, subsample=True)
-            create_seeded_percentile_models(target, X_val_subbed, full_pred, X_train_subbed, y_train_subbed, n_est, fold_length, sub_img_shape, data_output_directory, models_output_directory, percentile=95, subsample=True)
-            create_seeded_percentile_models(target, X_val_subbed, full_pred, X_train_subbed, y_train_subbed, n_est, fold_length, sub_img_shape, data_output_directory, models_output_directory, percentile=97, subsample=True)
-            create_seeded_percentile_models(target, X_val_subbed, full_pred, X_train_subbed, y_train_subbed, n_est, fold_length, sub_img_shape, data_output_directory, models_output_directory, percentile=99, subsample=True)
+        # create_seeded_percentile_models(target, X_val_subbed, full_pred, X_train_subbed, y_train_subbed, n_est, fold_length, sub_img_shape, data_output_directory, models_output_directory, percentile=93, subsample=True)
+        create_seeded_percentile_models(target, X_val_subbed, full_pred, X_train_subbed, y_train_subbed, n_est, fold_length, sub_img_shape, data_output_directory, models_output_directory, percentile=95, subsample=True)
+        create_seeded_percentile_models(target, X_val_subbed, full_pred, X_train_subbed, y_train_subbed, n_est, fold_length, sub_img_shape, data_output_directory, models_output_directory, percentile=97, subsample=True)
+        create_seeded_percentile_models(target, X_val_subbed, full_pred, X_train_subbed, y_train_subbed, n_est, fold_length, sub_img_shape, data_output_directory, models_output_directory, percentile=99, subsample=True)
 
 
 def save_model(model, models_output_directory, filename):
@@ -99,13 +100,13 @@ def train_kfold_model(target, X_training_list, y_training_list, X_val_list, y_va
     models = list()
     params = {
                         'n_estimators': n_est,
-                        # 'max_features': 0.5,
-                        'max_depth': 16,
+                        'max_features': 0.1,
+                        'max_depth': 3,
                         'verbose': 0,
                         'n_jobs': -1,
-                        # 'bootstrap': False,
+                        'bootstrap': True,
                         'oob_score': True,
-                        'warm_start': True
+                        # 'warm_start': True
                     }
     clf = RandomForestClassifier(**params)
     X_train_all = None
@@ -129,12 +130,13 @@ def train_kfold_model(target, X_training_list, y_training_list, X_val_list, y_va
 
     try:
         if subsample:
-            for x in range(5):
+            for x in range(20):
                 print("Subsampling enabled")
                 print("Fitting several times...")
-
-                rus = RandomUnderSampler(sampling_strategy=.5)
-                X_train, y_train = rus.fit_resample(X_train_all, y_train_all)
+                rand = random.randrange(10, 100, random.randrange(3, 10, 1))
+                print(rand)
+                rus = RandomUnderSampler(sampling_strategy=.66)
+                X_train, y_train = rus.fit_resample(X_train_all[::rand,:], y_train_all[::rand])
                 print(f"X_train shape: {X_train.shape}")
                 print(f"y_train shape: {y_train.shape}")
                 vals, counts = np.unique(y_train, return_counts=True)
@@ -191,27 +193,6 @@ def save_subimg_maps(y_subbed_list, sub_img_shape, data_output_directory, target
     print("Saving sub image maps")
     for x, sub_img in enumerate(y_subbed_list):
         save_np(sub_img, os.path.join(data_output_directory, f"{target}-{filename}_{x}"))
-
-
-def save_rgb(subimgs, sub_img_shape, output_directory, name):
-    """ Saves each subimgs RGB interpretation to output_directory """
-    print("Creating RGB sub images")
-    sub_imgs = list()
-    temp = np.zeros((sub_img_shape[0], sub_img_shape[1], 3))
-    rgb_stretched = np.zeros((sub_img_shape[0], sub_img_shape[1], 3))
-    full_img = None
-    for x, data in enumerate(subimgs):
-        rgb = np.zeros((sub_img_shape[0], sub_img_shape[1], 3))
-        for i in range(0,3):
-            rgb[:,:, i] = data[:,:, 4 - i]
-        if full_img is None:
-            full_img = rgb
-        else:
-            full_img = np.concatenate((full_img, rgb))
-    for i in range(0,3):
-        full_img[:,:,i] = rescale(full_img[:,:,i], two_percent=False)
-    save_np(full_img, os.path.join(output_directory, f"rgb_{name}_image-twopercentstretch"))
-    print()
 
 if __name__ == "__main__":
    main()
