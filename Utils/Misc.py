@@ -9,6 +9,15 @@ import os.path as path
 import matplotlib.pyplot as plt
 import time
 
+def save_np(arr, path):
+    np.save(path, arr)
+    print(f'+w {path}')
+
+def load_np(path):
+    print(f'+r {path}')
+    np.load(path)
+
+
 def err(msg):
     print('Error: ' + msg)
     sys.exit(1)
@@ -66,17 +75,27 @@ def wopen(fn):
 
 
 def read_binary(fn, to_string=True):
+    """ Binary read. First check if there is a npy file (this should be in
+        scikit format). if not, read the raw binary"""
+
     hdr = hdr_fn(fn)
 
     # read header and print parameters
     samples, lines, bands = read_hdr(hdr)
-    print("\tsamples", samples, "lines", lines, "bands", bands)
-
-    data = read_float(fn)
     if not to_string:
         samples = int(samples)
         lines = int(lines)
         bands = int(bands)
+
+    print("\tsamples", samples, "lines", lines, "bands", bands)
+    np_fn = fn.replace('.bin', '.npy')
+    if os.path.exists(np_fn):
+        data = load_np(np_fn)
+    else:
+        data = read_float(fn)
+        print(data.shape)
+        data = bsq_to_scikit(samples, lines, bands, data)
+        save_np(data, np_fn.replace('.npy', ''))
     return samples, lines, bands, data
 
 
@@ -125,6 +144,7 @@ def convert_y_to_binary(target, y, cols, rows):
     else:
         y = np.logical_and(y, t)
     return y
+
 
 def get_working_directories(path):
     """ Create the working directories for the data, results and models of this
@@ -279,3 +299,19 @@ def save_rgb(img, shape, output_directory, name):
         temp[:,:,i] = rescale(temp[:,:,i], two_percent=False)
     save_np(temp, os.path.join(output_directory, f"rgb_{name}_twopercentstretch"))
     print()
+
+
+def bsq_to_scikit(ncol, nrow, nband, d):
+    # convert image to a format expected by sgd / scikit learn
+    print("Converting bsq to Sklearn Format")
+    npx = nrow * ncol # number of pixels
+
+    # convert the image data to a numpy array of format expected by sgd
+    img_np = np.zeros((npx, nband))
+    for i in range(0, nrow):
+        ii = i * ncol
+        for j in range(0, ncol):
+            for k in range(0, nband):
+                # don't mess up the indexing
+                img_np[ii + j, k] = d[(k * npx) + ii + j]
+    return(img_np)
