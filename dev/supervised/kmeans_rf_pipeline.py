@@ -7,7 +7,7 @@ sys.path.append(os.curdir)
 from Utils.Misc import read_binary, bsq_to_scikit
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.model_selection import train_test_split, GridSearchCV
-from sklearn import preprocessing
+from sklearn.preprocessing import StandardScaler
 from sklearn.metrics import balanced_accuracy_score
 from sklearn.cluster import KMeans
 from sklearn.pipeline import Pipeline
@@ -17,15 +17,14 @@ import matplotlib.pyplot as plt
 """ Read Data """
 cols, rows, bands, data = read_binary('data/update-2020-09/stack_v2.bin', to_string=False)
 X = data[:,:11]
-X_scaled = preprocessing.scale(X)
 for x in range(11, 24):
     print(x)
     y = data[:, x]
-
-    X_train, X_test, y_train, y_test = train_test_split(X_scaled, y, test_size=.90)
+    X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=.90)
     rus = RandomUnderSampler(sampling_strategy=1)
     X_train_sub, y_train_sub = rus.fit_resample(X_train, y_train)
-
+    scaler = StandardScaler().fit(X_train_sub)
+    X_train_sub = scaler.transform(X_train_sub)
     """ Model Pipeline """
     pipeline = Pipeline([
     	('kmeans', KMeans()),
@@ -39,19 +38,13 @@ for x in range(11, 24):
     grid_clf = GridSearchCV(pipeline, param_grid, cv=5, verbose=2, n_jobs=-1)
     """ Fit, Predict, and Display Results """
     grid_clf.fit(X_train_sub,y_train_sub)
-    res = grid_clf.predict_proba(X_scaled)[:,1]
+    res = grid_clf.predict_proba(scaler.transform(X))[:,1]
 
-
-    # pool = mp.Pool(mp.cpu_count())
-    # y_pred = [pool.apply(grid_clf.predict, args=(X_test, X_train_sub))]
-    # pool.close()
     print('Predicting')
-    y_test_pred = grid_clf.predict(X_test)
+    y_test_pred = grid_clf.predict(scaler.transform(X_test))
     y_train_pred = grid_clf.predict(X_train_sub)
+
     print('Calculating Scores')
-    # pool = mp.Pool(2)
-    # scores = [pool.apply(balanced_accuracy_score, args=(y_test, y_test_pred, y_train_sub, y_train_pred[1]))]
-    # pool.close()
     test_score = round(balanced_accuracy_score(y_test, y_test_pred), 3)
     train_score = round(balanced_accuracy_score(y_train_sub, y_train_pred), 3)
     figure, axes = plt.subplots(1, 2, sharex=True, figsize=(20,10))
