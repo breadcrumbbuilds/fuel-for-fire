@@ -163,6 +163,8 @@ def mkdir(path):
         print(f'{path} exists')
     return path
 
+def join_path(path, filename):
+    return os.path.join(path, filename)
 
 def get_run_logdir(root_logdir):
     """ Create a unique directory for a specific run from system time """
