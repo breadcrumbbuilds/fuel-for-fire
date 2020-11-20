@@ -3,6 +3,7 @@ data*
 *DS_Store
 log
 *png
+*json
 *.vscode*
 *checkpoints*
 *mnist/
