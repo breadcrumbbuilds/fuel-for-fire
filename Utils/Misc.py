@@ -8,15 +8,7 @@ import numpy as np
 import os.path as path
 import matplotlib.pyplot as plt
 import time
-
-def save_np(arr, path):
-    np.save(path, arr)
-    print(f'+w {path}')
-
-def load_np(path):
-    print(f'+r {path}')
-    np.load(path)
-
+from joblib import dump, load
 
 def err(msg):
     print('Error: ' + msg)
@@ -146,25 +138,20 @@ def convert_y_to_binary(target, y, cols, rows):
     return y
 
 
-def get_working_directories(path):
-    """ Create the working directories for the data, results and models of this
-        run.
-
-        To use with analysis directories following training, use this scheme for
-        the path variable:
-        {algorithm}/{modification/description of algorithm}/{key parameter}/{sampling type}
-
+def get_working_directories(path, output_dirs):
+    """ Create the working directories based on list of output directories passed
         example:
         data_dir, results_dir, models_dir =
-            get_working_directories(RandmomForest/Stumps/1000-trees/unsersample)
-
-
+            get_working_directories('RandmomForest/Stumps/1000-trees/unsersample', ['outputs', 'models'])
     """
     root_of_output = mkdir(os.path.join(os.curdir, 'outs'))
     for dir in path.split("/"):
         root_of_output = mkdir(os.path.join(root_of_output, dir))
     root_of_output = mkdir(get_run_logdir(root_of_output))
-    return  mkdir(os.path.join(root_of_output, 'data')), mkdir(os.path.join(root_of_output, 'results')), mkdir(os.path.join(root_of_output, 'models'))
+    results = {}
+    for dir in output_dirs:
+        results[dir] = mkdir(os.path.join(root_of_output, dir))
+    return results
 
 
 def mkdir(path):
@@ -243,62 +230,10 @@ def split_train_val(data, shape):
     return train, val
 
 
-def save_subimg_maps(y_subbed_list, sub_img_shape, data_output_directory, target, filename):
-    print("Saving sub image maps")
-    for x, sub_img in enumerate(y_subbed_list):
-        save_np(sub_img, os.path.join(data_output_directory, f"{target}-{filename}_{x}"))
-
-
-def save_rgb(subimgs, sub_img_shape, output_directory, name):
-    """ Saves each subimgs RGB interpretation to output_directory """
-    print("Creating RGB sub images")
-    sub_imgs = list()
-    temp = np.zeros((sub_img_shape[0], sub_img_shape[1], 3))
-    rgb_stretched = np.zeros((sub_img_shape[0], sub_img_shape[1], 3))
-    full_img = None
-    for x, data in enumerate(subimgs):
-        rgb = np.zeros((sub_img_shape[0], sub_img_shape[1], 3))
-        for i in range(0,3):
-            rgb[:,:, i] = data[:,:, 4 - i]
-        if full_img is None:
-            full_img = rgb
-        else:
-            full_img = np.concatenate((full_img, rgb))
-    for i in range(0,3):
-        full_img[:,:,i] = rescale(full_img[:,:,i], two_percent=False)
-    save_np(full_img, os.path.join(output_directory, f"rgb_{name}_image-twopercentstretch"))
-    print()
-
-
-def save_rgb_subbed(subimgs, sub_img_shape, output_directory, name):
-    """ Saves each subimgs RGB interpretation to output_directory """
-    print("Creating RGB sub images")
-    sub_imgs = list()
-    temp = np.zeros((sub_img_shape[0], sub_img_shape[1], 3))
-    rgb_stretched = np.zeros((sub_img_shape[0], sub_img_shape[1], 3))
-    full_img = None
-    for x, data in enumerate(subimgs):
-        rgb = np.zeros((sub_img_shape[0], sub_img_shape[1], 3))
-        for i in range(0,3):
-            rgb[:,:, i] = data[:,:, 4 - i]
-        if full_img is None:
-            full_img = rgb
-        else:
-            full_img = np.concatenate((full_img, rgb))
-    for i in range(0,3):
-        full_img[:,:,i] = rescale(full_img[:,:,i], two_percent=False)
-    save_np(full_img, os.path.join(output_directory, f"rgb_{name}_image-twopercentstretch"))
-    print()
-
-
-def save_rgb(img, shape, output_directory, name):
-    temp = np.zeros((shape[0], shape[1], 3))
-    for i in range(0,3):
-        temp[:,:, i] = img[:,:, 4 - i]
-    for i in range(0,3):
-        temp[:,:,i] = rescale(temp[:,:,i], two_percent=False)
-    save_np(temp, os.path.join(output_directory, f"rgb_{name}_twopercentstretch"))
-    print()
+def save_model(model, path):
+    print("Saving Model")
+    dump(model, path)
+    print(f"+w {path}")
 
 
 def bsq_to_scikit(ncol, nrow, nband, d):
