@@ -20,6 +20,14 @@ from imblearn.under_sampling import RandomUnderSampler
 from imblearn.pipeline import Pipeline
 import matplotlib.pyplot as plt
 
+# Modify me if you don't have enough RAM
+param_grid = dict(
+    kmeans__n_clusters=range(25, 51, 25),
+    rf__max_features=[0.1, 0.3],
+    rf__n_estimators=[100, 333],
+    us__sampling_strategy=[0.5,0.75,1]
+                    )
+
 
 band_names = [
     'B4 (665 nm)',
@@ -76,12 +84,7 @@ for x in reversed(range(11, 22)): # each class label
     	('kmeans', KMeans()),
     	('rf', RandomForestClassifier(n_jobs=-1, max_depth=3))
     ])
-    param_grid = dict(
-        kmeans__n_clusters=range(25, 101, 25),
-        rf__max_features=[0.1, 0.3],
-        rf__n_estimators=[100, 333, 1000],
-        us__sampling_strategy=[0.25, 0.5,0.75,1]
-                      )
+
     grid_clf = GridSearchCV(pipeline, param_grid, cv=3, verbose=1, n_jobs=-1)
 
     """ Fit, Predict, and Display Results """
