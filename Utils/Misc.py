@@ -79,8 +79,8 @@ def read_binary(fn, to_string=True):
         lines = int(lines)
         bands = int(bands)
 
-    print("\tsamples", samples, "lines", lines, "bands", bands)
     np_fn = fn.replace('.bin', '.npy')
+
     if os.path.exists(np_fn):
         data = load_np(np_fn)
     else:
@@ -88,6 +88,7 @@ def read_binary(fn, to_string=True):
         print(data.shape)
         data = bsq_to_scikit(samples, lines, bands, data)
         save_np(data, np_fn.replace('.npy', ''))
+    print("\tsamples", samples, "lines", lines, "bands", bands)
     return samples, lines, bands, data
 
 
@@ -144,13 +145,17 @@ def get_working_directories(path, output_dirs):
         data_dir, results_dir, models_dir =
             get_working_directories('RandmomForest/Stumps/1000-trees/unsersample', ['outputs', 'models'])
     """
-    root_of_output = mkdir(os.path.join(os.curdir, 'outs'))
-    for dir in path.split("/"):
-        root_of_output = mkdir(os.path.join(root_of_output, dir))
-    root_of_output = mkdir(get_run_logdir(root_of_output))
     results = {}
+    root_of_output = mkdir(join_path(os.curdir, 'outs'))
+    results['root'] = root_of_output
+    for dir in path.split("/"):
+        root_of_output = mkdir(join_path(root_of_output, dir))
+    results['exp_root'] = mkdir(get_run_logdir(root_of_output))
+    results['logs'] = mkdir(join_path(results['exp_root'], 'logs'))
+
     for dir in output_dirs:
-        results[dir] = mkdir(os.path.join(root_of_output, dir))
+        results[dir] = mkdir(join_path(results['exp_root'], dir))
+    print(f'Working Directories created: {[d for d in results.items()]}')
     return results
 
 
@@ -238,6 +243,19 @@ def save_model(model, path):
     print(f"+w {path}")
 
 
+def value_counts(data):
+    return np.unique(data, return_counts=True)
+
+def print_value_counts(data):
+    vals, counts = value_counts(data)
+    result = ''
+    if len(vals) > 2:
+        raise Exception("print_value_counts doesn't support non-binary printing of value counts")
+    else:
+        for val in vals:
+            result += f'{bool(val)}\t'
+
+
 def bsq_to_scikit(ncol, nrow, nband, d):
     # convert image to a format expected by sgd / scikit learn
     print("Converting bsq to Sklearn Format")
@@ -252,3 +270,25 @@ def bsq_to_scikit(ncol, nrow, nband, d):
                 # don't mess up the indexing
                 img_np[ii + j, k] = d[(k * npx) + ii + j]
     return(img_np)
+
+
+def torgb(path, data_r, shape):
+    l, s, b = shape
+    path += 'rgb'
+
+    if exist(f'{path}.npy'):
+        return load_np(f'{path}.npy')
+    print('RGB not found. Creating RGB image')
+    rgb = np.zeros((l, s, 3))
+
+    for i in range(0, 3):
+        rgb[:, :, i] = data_r[:, 4 - i].reshape((l, s))
+    for i in range(0, 3):
+        rgb[:, :, i] = rescale(rgb[:, :, i])
+
+    save_np(rgb, path)
+    plt.imshow(rgb)
+    plt.title(path.split('/')[2])
+    plt.savefig(path)
+    plt.clf()
+    return rgb
