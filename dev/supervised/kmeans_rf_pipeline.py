@@ -27,7 +27,8 @@ param_grid = dict(
     rf__n_estimators=[100, 333],
     us__sampling_strategy=[0.5,0.75,1]
                     )
-
+test_size = .90
+verbosity = 1
 
 band_names = [
     'B4 (665 nm)',
@@ -67,9 +68,9 @@ rgb = torgb(join_path(directory['root'], data_dir.split('/')[2].replace('.bin', 
             X,
             (rows, cols, bands))
 
-test_size = .90
 
-for x in reversed(range(11, 22)): # each class label
+
+for x in reversed(range(11, 24)): # each class label
     band_name = band_names[x].replace(' ', '')
     working_directories = {}
     for d in sub_dirs:
@@ -85,7 +86,7 @@ for x in reversed(range(11, 22)): # each class label
     	('rf', RandomForestClassifier(n_jobs=-1, max_depth=3))
     ])
 
-    grid_clf = GridSearchCV(pipeline, param_grid, cv=3, verbose=1, n_jobs=-1)
+    grid_clf = GridSearchCV(pipeline, param_grid, cv=3, verbose=verbosity, n_jobs=-1)
 
     """ Fit, Predict, and Display Results """
     grid_clf.fit(X_train,y_train)
