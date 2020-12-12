@@ -1,7 +1,0 @@
-# Not yet functional
-name:2.7-read-spectral
-dependencies: 
-  - python=2.7.15+
-  - pip:
-    - numpy=1.16.2
-    - matplotlib=2.2.4

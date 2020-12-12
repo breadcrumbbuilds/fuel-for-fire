@@ -1,9 +1,0 @@
-name: tensorflow1.4
-dependencies:
-        - python=3.6
-        - pip
-        - pip:
-                - numpy
-                - tensorflow==1.4
-                - matplotlib
-                

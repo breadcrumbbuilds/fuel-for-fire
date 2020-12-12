@@ -139,7 +139,7 @@ def convert_y_to_binary(target, y, cols, rows):
     return y
 
 
-def get_working_directories(path, output_dirs):
+def get_working_directories(path, output_dirs=None):
     """ Create the working directories based on list of output directories passed
         example:
         data_dir, results_dir, models_dir =
@@ -270,25 +270,3 @@ def bsq_to_scikit(ncol, nrow, nband, d):
                 # don't mess up the indexing
                 img_np[ii + j, k] = d[(k * npx) + ii + j]
     return(img_np)
-
-
-def torgb(path, data_r, shape):
-    l, s, b = shape
-    path += 'rgb'
-
-    if exist(f'{path}.npy'):
-        return load_np(f'{path}.npy')
-    print('RGB not found. Creating RGB image')
-    rgb = np.zeros((l, s, 3))
-
-    for i in range(0, 3):
-        rgb[:, :, i] = data_r[:, 4 - i].reshape((l, s))
-    for i in range(0, 3):
-        rgb[:, :, i] = rescale(rgb[:, :, i])
-
-    save_np(rgb, path)
-    plt.imshow(rgb)
-    plt.title(path.split('/')[2])
-    plt.savefig(path)
-    plt.clf()
-    return rgb

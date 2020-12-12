@@ -9,8 +9,8 @@ from Utils.Misc import read_binary, \
     save_model, \
     join_path, \
     value_counts, \
-    torgb, \
     mkdir
+from Utils.Data import read_update_202009, torgb
 from sklearn.metrics import precision_recall_curve,plot_precision_recall_curve,plot_confusion_matrix,average_precision_score,balanced_accuracy_score
 from sklearn.model_selection import train_test_split, GridSearchCV
 from sklearn.preprocessing import StandardScaler
@@ -62,20 +62,17 @@ sub_dirs = ['data', 'params', 'results', 'model']
 directory = get_working_directories(experiment_root, sub_dirs)
 """ Read Data """
 data_dir = 'data/update-2020-09/stack_v2.bin'
-cols, rows, bands, data = read_binary(data_dir, to_string=False)
-X = data[:,:11]
+X, y = read_update_202009(data_dir)
 rgb = torgb(join_path(directory['root'], data_dir.split('/')[2].replace('.bin', '')),
             X,
             (rows, cols, bands))
 
-
-
 for x in reversed(range(11, 24)): # each class label
     band_name = band_names[x].replace(' ', '')
     working_directories = {}
-    for d in sub_dirs:
-        working_directories[d] = mkdir(join_path(join_path(directory['exp_root'], d), band_name))
-    print(band_name)
+    this_dir = \
+        mkdir(join_path(join_path(directory['exp_root']), band_name))
+
     y = data[:, x]
     X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=test_size)
     """ Model Pipeline """
@@ -93,10 +90,10 @@ for x in reversed(range(11, 24)): # each class label
 
     print('Predicting')
     y_full_probapred = grid_clf.predict_proba(X)[:,1]
-    save_np(y_full_probapred, join_path(working_directories['data'], f'{band_name}_probapred'))
+    save_np(y_full_probapred, join_path(this_dir, f'probapred'))
 
     y_full_pred = grid_clf.predict(X)
-    save_np(y_full_pred, join_path(working_directories['data'], f'{band_name}_pred'))
+    save_np(y_full_pred, join_path(this_dir, f'pred'))
 
     y_test_pred = grid_clf.predict(X_test)
     y_train_pred = grid_clf.predict(X_train)
@@ -106,7 +103,7 @@ for x in reversed(range(11, 24)): # each class label
     train_score = round(balanced_accuracy_score(y_train, y_train_pred), 3)
     figure, axes = plt.subplots(1, 4, sharex=True, figsize=(20,10))
     y_shaped = y.reshape(rows, cols)
-    save_np(y_full_pred, join_path(working_directories['data'], f'{band_name}_reference'))
+    save_np(y_full_pred, join_path(this_dir, f'reference'))
 
     axes[0].imshow(rgb, cmap='gray')
     axes[0].set_title(f'RGB')
@@ -124,7 +121,7 @@ for x in reversed(range(11, 24)): # each class label
 
     figure.suptitle(f'{band_name} - Test: {test_score}, Train: {train_score}, Test Size: {test_size}')
     plt.tight_layout()
-    plt.savefig(join_path(working_directories['results'], f'{band_name}_visual'))
+    plt.savefig(join_path(this_dir, f'rgb_reference_pred'))
     plt.clf()
     average_precision = average_precision_score(y_test, y_test_pred)
     print('Average precision-recall score: {0:0.2f}'.format(
@@ -133,8 +130,8 @@ for x in reversed(range(11, 24)): # each class label
     disp = plot_precision_recall_curve(grid_clf, X_test, y_test)
     disp.ax_.set_title(f'{band_name} - Precision-Recall curve: '
                     'AP={0:0.2f}'.format(average_precision))
-    plt.savefig(join_path(working_directories['results'],
-                          f'{band_name}_precrec_curve'))
+    plt.savefig(join_path(this_dir,
+                          f'precision_recall_curve'))
     plt.clf()
     np.set_printoptions(precision=2)
 
@@ -150,10 +147,10 @@ for x in reversed(range(11, 24)): # each class label
         print(title)
         print(disp.confusion_matrix)
         plt.tight_layout()
-        plt.savefig(join_path(working_directories['results'], f'{band_name}_confmatrix_n-{normalize}'))
+        plt.savefig(join_path(this_dir, if normalize f'confusion_matrix_normalize' else: f'confusion_matrix'))
         plt.clf()
     json_object = json.dumps(grid_clf.best_params_, indent = 4)
-    with open(join_path(working_directories['params'], f"{band_name}.json"), "w") as outfile:
+    with open(join_path(this_dir, f"best_params.json"), "w") as outfile:
     	outfile.write(json_object)
 
-    save_model(grid_clf, join_path(working_directories['model'], f'{band_name}'))
+    save_model(grid_clf, join_path(this_dir, 'model'))
