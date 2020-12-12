@@ -5,7 +5,6 @@ sys.path.append(os.curdir)
 
 def read_update_202009(path: str):
     """Read the update-2020-09 dataset.
-        test asdfasdfasdfasd
     Args:
 
     path - directory containing the .bin and .hdr files.
